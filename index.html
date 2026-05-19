@@ -1,0 +1,1350 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<title>FM RUN</title>
+<meta name="theme-color" content="#0f1530" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="FM RUN" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" href="favicon.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+    });
+  }
+</script>
+<style>
+  :root{
+    --bg-0:#070b1a;
+    --bg-1:#0f1530;
+    --accent:#ffcc33;
+    --accent-2:#ff4d8d;
+    --ink:#e8ecff;
+    --ink-dim:#8993b8;
+    --danger:#ff5566;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:none}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  #gamearea{flex:1;position:relative;min-height:0;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 70%)}
+  .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
+  .charnav{display:flex;flex:0 0 100px;padding:10px;gap:8px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
+  .charbtn{flex:1;height:80px;border-radius:14px;border:0;background:var(--char-color);color:#0f0c14;font-weight:900;font-size:18px;letter-spacing:.5px;cursor:pointer;opacity:.5;transition:opacity .12s ease,transform .12s ease,box-shadow .12s ease;font-family:inherit;display:flex;align-items:center;justify-content:center}
+  .charbtn:active{transform:scale(.95)}
+  .charbtn.active{opacity:1;transform:scale(1.04);box-shadow:0 0 22px var(--char-color),inset 0 0 0 2px rgba(255,255,255,.85)}
+  .top{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;font-weight:700;letter-spacing:.5px;gap:12px}
+  .score{font-variant-numeric:tabular-nums;font-size:22px;flex:1;text-align:left}
+  .coins{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-size:22px;flex:1;justify-content:center}
+  .coin-dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(255,204,51,0.5)}
+  .lives{display:flex;align-items:center;gap:5px;flex:1;justify-content:flex-end}
+  .heart{width:22px;height:22px;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff5566"><path d="M12 21s-7-4.5-7-11a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 6.5-7 11-7 11z"/></svg>') center/contain no-repeat;opacity:.22;transition:opacity .25s ease,transform .25s ease}
+  .heart.full{opacity:1;transform:scale(1.05)}
+  .center{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:0 24px}
+  .title{font-size:64px;font-weight:900;letter-spacing:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 8px}
+  .sub{color:var(--ink-dim);margin:0 0 28px;font-size:16px}
+  .btn{pointer-events:auto;border:0;border-radius:999px;padding:14px 28px;font-size:18px;font-weight:800;letter-spacing:.5px;background:var(--accent);color:#1a1a1a;cursor:pointer;box-shadow:0 8px 24px rgba(255,204,51,.25);transition:transform .08s ease}
+  .btn:active{transform:scale(.96)}
+  .hint{color:var(--ink-dim);margin-top:14px;font-size:13px}
+  .hidden{display:none !important}
+  .gameover .title{background:linear-gradient(90deg,var(--danger),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:12px;margin-left:8px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="gamearea">
+    <canvas id="game"></canvas>
+
+    <div class="ui">
+      <div class="top">
+        <div class="score" id="score">0 m</div>
+        <div class="coins" id="coins">
+          <span class="coin-dot"></span>
+          <span id="coinsValue">0</span>
+        </div>
+        <div class="lives" id="lives">
+          <span class="heart"></span>
+          <span class="heart"></span>
+          <span class="heart"></span>
+        </div>
+      </div>
+
+      <div class="center" id="screenStart">
+        <h1 class="title">FM RUN</h1>
+        <p class="sub">Tippe einen Helden unten, um zu wechseln</p>
+        <button class="btn" id="btnStart">Spielen</button>
+        <div class="hint">v0.2 prototype</div>
+      </div>
+
+      <div class="center hidden gameover" id="screenOver">
+        <h1 class="title">GAME OVER</h1>
+        <p class="sub" id="overText">0 m</p>
+        <button class="btn" id="btnRestart">Nochmal</button>
+        <div class="hint">Leertaste / Tap zum Neustart</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charnav">
+    <button class="charbtn active" data-char="lou"    style="--char-color:#ffd95c">Lou</button>
+    <button class="charbtn"        data-char="sasch"  style="--char-color:#86efac">Sasch</button>
+    <button class="charbtn"        data-char="shizzo" style="--char-color:#fca5a5">Shizzo</button>
+    <button class="charbtn"        data-char="long"   style="--char-color:#93c5fd">LonG</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- canvas / DPR ----------
+  const canvas = document.getElementById('game');
+  const gamearea = document.getElementById('gamearea');
+  const ctx = canvas.getContext('2d');
+  let DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  let W = 0, H = 0;       // CSS pixels (Game-Area, ohne Bottom-Nav)
+  function resize(){
+    DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+    // Bottom-Nav nimmt sich ihren Platz ueber flex; gamearea hat dann den Rest
+    W = gamearea.clientWidth  || window.innerWidth;
+    H = gamearea.clientHeight || (window.innerHeight - 100);
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize, {passive:true});
+  resize();
+
+  // ---------- state ----------
+  const STATE = { READY:'ready', PLAYING:'playing', SLIDING:'sliding', FALLING:'falling', OVER:'over' };
+  let state = STATE.READY;
+  let lastT = 0;
+  let timeAlive = 0;
+  let distance = 0;          // in meters (score)
+  let speed = 0;             // px/sec horizontal world speed
+  // Speed pro Etage (Index = Level 0..MAX_LEVEL)
+  // Hoehere Etage = schnellere Welt -> mehr Risk/Reward
+  const SPEEDS = [180, 195, 210, 235, 260, 300];
+  const SPEED_LERP = 3;      // 1/SPEED_LERP = ~Sekunden bis neue Etagen-Speed erreicht
+  const PIXELS_PER_METER = 30;
+
+  // Spawn-Raten in "Events pro 100m" pro Etage (Index = Level 0..MAX_LEVEL)
+  // Levels 1-4 nutzen identische Werte (= Level 4 als Baseline = "vorletzte Ebene"-Feel).
+  // Level 0 (Ebene 1) bleibt sanfter fuer Einstieg, Level 5 (Ebene 6) hat eigenes Pattern.
+  // Schwierigkeitsgrad ueber Geschwindigkeit, nicht ueber Spawn-Dichte.
+  const SPAWN_RATES = {
+    coin:     [ 80,  45,  45,  45,  45,   80],
+    obstacle: [150, 350, 350, 350, 350,  500],
+    gap:      [150, 350, 350, 350, 350,  500],
+    ramp:     [140,  45,  45,  45,  45,    0]
+  };
+
+  // Combo-spezifischer Mindest-Abstand zwischen aufeinanderfolgenden Spawns auf gleicher Etage.
+  // Format: SPAWN_MIN_GAP[letzterTyp][neuerTyp] = Pixel.
+  // Verhindert Game-Over-Combos wie "Loch -> Hindernis" und chaotisches Cluster-Spawning.
+  const SPAWN_MIN_GAP = {
+    obstacle: { obstacle: 250, gap: 220, ramp: 180, coin: 50 },
+    gap:      { obstacle: 300, gap: 350, ramp: 250, coin: 50 },
+    ramp:     { obstacle: 220, gap: 280, ramp: 150, coin: 50 },
+    coin:     { obstacle:  60, gap:  60, ramp:  60, coin: 35 }
+  };
+  const SPAWN_BUFFER_DEFAULT = 50; // wenn die Etage komplett leer ist
+
+  // Schedule-basiertes Spawning (Varianz-Reduktion):
+  // Statt reiner Bernoulli pro Frame tracken wir pro Typ/Etage die naechste Spawn-Distanz.
+  // Intervall = 10000/rate (Meter), mit Jitter 0.7-1.3 × Mean. Bounded -> kein 500m-leer-Pech.
+  const nextSpawnDistance = {
+    coin:     [],
+    obstacle: [],
+    gap:      [],
+    ramp:     []
+  };
+  function computeNextDist(type, lvl, fromDist, isInitial){
+    const rate = SPAWN_RATES[type][lvl];
+    if(!rate || rate <= 0) return Infinity;
+    const interval = 10000 / rate;
+    if(isInitial){
+      // Initial: erste Spawns frueh, damit die Welt direkt populiert ist
+      return fromDist + interval * (0.2 + 0.5 * Math.random());
+    }
+    // Steady-state: Jitter 0.7-1.3 × Mean
+    return fromDist + interval * (0.7 + 0.6 * Math.random());
+  }
+  function resetSpawnSchedule(){
+    for(const type of ['coin', 'obstacle', 'gap', 'ramp']){
+      nextSpawnDistance[type] = [];
+      for(let lvl = 0; lvl <= MAX_LEVEL; lvl++){
+        nextSpawnDistance[type][lvl] = computeNextDist(type, lvl, 0, true);
+      }
+    }
+  }
+
+  // Etagen / Treppen-System
+  const MAX_LEVEL = 5;          // Boden (0) + 5 Etagen darueber
+  const SLIDE_DURATION = 0.45;  // Sekunden pro Treppen-Aufstieg
+  const FALL_DURATION  = 0.30;  // Sekunden pro Etagen-Sturz (Level > 0)
+  let currentLevel = 0;         // aktuelle Etage des Spielers
+  let slideProgress = 0;        // [-1..0..1] waehrend SLIDING/FALLING
+  let activeRamp = null;        // Referenz auf die gerade befahrene Schraege (fuer geometrische Slide-Bindung)
+  function levelGap(){ return H * 0.28; }
+  function levelFloorY(k){
+    // Bildschirm-Y der Etagen-Oberflaeche von Level k.
+    // currentLevel sitzt immer auf H*0.82; waehrend SLIDING shifted die Welt nach unten.
+    return H * 0.82 + slideProgress * levelGap() - (k - currentLevel) * levelGap();
+  }
+
+  let best = 0;
+  try { best = parseInt(localStorage.getItem('fmrun_best') || '0', 10) || 0; } catch(e){}
+  // Best wird nur noch im Game-Over-Screen angezeigt -- Top-Bar zeigt stattdessen Lives.
+
+  // ---------- Lives / 1up ----------
+  // 1ups spawnen nur als Teil des ramp_oneup Patterns auf Ebene 6.
+  // Pro Visit auf Ebene 6 darf nur EIN 1up-Pattern spawnen -- danach blockiert,
+  // bis der Spieler die Etage verlassen + wieder erreicht hat.
+  const MAX_LIVES = 3;
+  let lives = 0;                      // Spieler startet ohne Lives, sammelt sie durch 1ups
+  let oneUpEligible = false;          // pro Visit auf MAX_LEVEL: 1x ein 1up-Pattern moeglich
+  let invincibleUntil = 0;            // Game-Time-Stempel: bis wann der Spieler unverwundbar ist (nach Life-Loss)
+  function updateLivesDisplay(){
+    const hearts = document.querySelectorAll('#lives .heart');
+    hearts.forEach((h, i) => h.classList.toggle('full', i < lives));
+  }
+  updateLivesDisplay();
+
+  // ---------- player ----------
+  const player = {
+    x: 0, y: 0,
+    w: 44, h: 56,
+    vy: 0,
+    onGround: true,
+    jumpsUsed: 0,
+    maxJumps: 2,         // double jump for forgiving feel
+    runFrame: 0,
+  };
+
+  const GRAVITY = 2400;       // px/sec^2
+  const JUMP_VEL = -880;      // px/sec
+  const DOUBLE_JUMP_VEL = -740;
+
+  // ---------- world ----------
+  const groundHeightFrac = 0.18; // ground takes bottom 18% of screen
+  function groundY(){ return H - H * groundHeightFrac; }
+
+  const obstacles = [];     // {x,w,h,type,level} - y wird ueber levelFloorY(level) berechnet
+  const ramps = [];         // {x,w,level} - Treppe von Level k -> k+1
+  const gaps = [];          // {x,w,level} - Luecke im Boden von Level k
+  const coins = [];         // {x,level} - eingesammelt bei Kollision
+  const oneUps = [];        // {x,level} - Lives-Pickup, nur auf MAX_LEVEL, 1x pro Visit
+  const popups = [];        // {x,y,text,age,life} - "+X" floating-up Text bei Coin-Pickup
+
+  // Coin-Werte pro Etage (Index = Level 0..MAX_LEVEL)
+  // Entspricht User-Logik 1-indexed: Ebene 1=1, Ebene 2=10, ..., Ebene 6=keine Coins
+  const COIN_VALUES = [1, 10, 25, 50, 100, 0];
+  const COIN_RADIUS = 11;
+  const COIN_Y_OFFSET = 30; // Hoehe ueber dem Boden -- auf Spielermitte
+  let coinsTotal = 0;
+  try { coinsTotal = parseInt(localStorage.getItem('fmrun_coins') || '0', 10) || 0; } catch(e){}
+  document.getElementById('coinsValue').textContent = coinsTotal.toLocaleString('de-DE');
+
+  // ---------- Charaktere ----------
+  // Jeder Charakter ist mit genau einem Element verbunden:
+  //   lou    -> kann als einziger Schraegen hochsteigen
+  //   sasch  -> rennt durch Hindernisse hindurch (kein Game Over)
+  //   shizzo -> sammelt Coins (andere koennen sie nicht aufnehmen)
+  //   long   -> springt automatisch ueber Loecher
+  const CHARACTERS = {
+    lou:    { name: 'Lou',    body: '#ffd95c', dark: '#ff8a3d' },
+    sasch:  { name: 'Sasch',  body: '#86efac', dark: '#15803d' },
+    shizzo: { name: 'Shizzo', body: '#fca5a5', dark: '#b91c1c' },
+    long:   { name: 'LonG',   body: '#93c5fd', dark: '#1e40af' }
+  };
+  let activeCharacter = 'lou';
+  const LONG_GAP_LOOKAHEAD = 60; // px, wie weit vor der Luecken-Kante LonG den Sprung triggert
+
+  function setActiveCharacter(name){
+    if(!CHARACTERS[name] || activeCharacter === name) return;
+    activeCharacter = name;
+    document.querySelectorAll('.charbtn').forEach(b => {
+      b.classList.toggle('active', b.dataset.char === name);
+    });
+    // kleiner visueller Puff am Spieler-Standort
+    if(typeof player !== 'undefined' && state !== STATE.READY){
+      puff(player.x + player.w/2, player.y + player.h/2, 6);
+    }
+  }
+
+  // Click-/Touch-Handler fuer die Bottom-Nav-Buttons
+  document.querySelectorAll('.charbtn').forEach(b => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setActiveCharacter(b.dataset.char);
+    });
+  });
+  // Tastatur 1..4 als Shortcut (Desktop-Test)
+  window.addEventListener('keydown', (e) => {
+    const map = { '1':'lou', '2':'sasch', '3':'shizzo', '4':'long' };
+    if(map[e.key]) setActiveCharacter(map[e.key]);
+  });
+
+  const clouds = [];
+  const stars = [];
+  const particles = [];
+
+
+  function reset(){
+    obstacles.length = 0;
+    ramps.length = 0;
+    gaps.length = 0;
+    coins.length = 0;
+    oneUps.length = 0;
+    popups.length = 0;
+    particles.length = 0;
+    // coinsTotal NICHT zuruecksetzen -- bleibt rundenuebergreifend erhalten
+    // Lives + Eligibility per Run zuruecksetzen
+    lives = 0;
+    oneUpEligible = false;
+    invincibleUntil = 0;
+    updateLivesDisplay();
+    timeAlive = 0;
+    distance = 0;
+    speed = SPEEDS[0];
+    currentLevel = 0;
+    slideProgress = 0;
+    activeRamp = null;
+    player.x = Math.max(80, W * 0.18);
+    player.y = groundY() - player.h;
+    player.vy = 0;
+    player.onGround = true;
+    player.jumpsUsed = 0;
+    player.runFrame = 0;
+    seedStars();
+    seedClouds();
+  }
+
+  function seedStars(){
+    stars.length = 0;
+    const n = Math.floor((W*H)/14000);
+    for(let i=0;i<n;i++){
+      stars.push({
+        x: Math.random()*W,
+        y: Math.random()*(H*0.7),
+        r: Math.random()*1.4+0.2,
+        tw: Math.random()*Math.PI*2
+      });
+    }
+  }
+  function seedClouds(){
+    clouds.length = 0;
+    for(let i=0;i<5;i++){
+      clouds.push({
+        x: Math.random()*W,
+        y: 40 + Math.random()*(H*0.4),
+        s: 0.4 + Math.random()*0.5,
+        w: 80 + Math.random()*120
+      });
+    }
+  }
+
+  // ---------- input ----------
+  // Manueller Jump entfernt -- Spieler "rennt" konstant. Der einzige Sprung ist
+  // LonGs Auto-Jump ueber Loecher (siehe Gap-Detection).
+  // Tap / Space / Up startet/restart das Spiel im Menu/GameOver-Screen.
+
+  // Sprunghoehe und Mindest-Air-Time fuer LonGs Auto-Jump
+  const LONG_JUMP_HEIGHT  = 130; // px (sichtbare Sprunghoehe, konstant)
+  const LONG_LAND_MARGIN  = 30;  // px hinter dem Loch zum Landen
+  const LONG_MIN_AIR_TIME = 0.45;// kurze Loecher kriegen trotzdem einen sichtbaren Hop
+
+  // Berechnet vy und custom Gravity so, dass der Spieler mit fester Hoehe (LONG_JUMP_HEIGHT)
+  // und exakt der noetigen Air time landet -- knapp hinter dem Loch.
+  // Physik: H = vy^2 / (2g),  T = 2|vy|/g  =>  g = 8H/T^2,  |vy| = sqrt(2gH)
+  function triggerLongJump(gap){
+    if(!player.onGround) return;
+    const targetX = gap.x + gap.w + LONG_LAND_MARGIN;
+    const required = (targetX - player.x) / speed;
+    const tAir = Math.max(LONG_MIN_AIR_TIME, required);
+    const g    = 8 * LONG_JUMP_HEIGHT / (tAir * tAir);
+    const vy   = -Math.sqrt(2 * g * LONG_JUMP_HEIGHT);
+    player.vy = vy;
+    player.customGravity = g; // Override fuer die Dauer dieses Sprungs
+    player.onGround = false;
+    player.jumpsUsed = 1;
+    puff(player.x + player.w/2, player.y + player.h, 6);
+  }
+
+  // Lou auf Top-Level: Rampe wird zum Boost-Pad. Hoher Bogen (~200px Hoehe, 1.4s Air),
+  // damit die schwebenden Coins (yOffset ~228) im Bogen erreicht werden koennen.
+  // Nach dem Bogen landet der Spieler wieder auf Top-Floor (kein Level-Wechsel).
+  const LOU_ARC_HEIGHT   = 200;
+  const LOU_ARC_AIR_TIME = 1.4;
+  function triggerLouArcJump(){
+    if(!player.onGround) return;
+    const g  = 8 * LOU_ARC_HEIGHT / (LOU_ARC_AIR_TIME * LOU_ARC_AIR_TIME);
+    const vy = -Math.sqrt(2 * g * LOU_ARC_HEIGHT);
+    player.vy = vy;
+    player.customGravity = g;
+    player.onGround = false;
+    player.jumpsUsed = 1;
+    puff(player.x + player.w/2, player.y + player.h, 8);
+  }
+  function tryStart(){
+    if(state === STATE.READY){ start(); return; }
+    if(state === STATE.OVER){  start(); return; }
+  }
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Enter'){
+      e.preventDefault();
+      tryStart();
+    }
+  });
+  // Tap auf Spielflaeche -> nur Start/Restart (im PLAYING tut Tap nichts)
+  function onPointer(e){
+    if(e.target.closest('.btn')) return;
+    if(e.target.closest('.charbtn')) return; // Charakter-Buttons handhaben sich selbst
+    e.preventDefault();
+    tryStart();
+  }
+  window.addEventListener('pointerdown', onPointer, {passive:false});
+
+  document.getElementById('btnStart').addEventListener('click', start);
+  document.getElementById('btnRestart').addEventListener('click', start);
+
+  // ---------- start / over ----------
+  function preSpawnWorld(){
+    // Beim Spielstart: 4 Elemente HINTER dem rechten Bildrand platzieren,
+    // sodass sie nach kurzer Spielerreise sichtbar reinscrollen statt direkt im Bild
+    // zu erscheinen. Das gibt dem Spieler Zeit, sich einzustellen.
+    // KEINE Loecher in den Pre-Spawns -- die kommen erst aus dem natuerlichen Schedule.
+    const lvl = 0;
+    // Erstes Element nach ~5m Scroll, dann ~7.7m Abstand
+    const positions = [W + 150, W + 380, W + 610, W + 840];
+    for(let i = 0; i < positions.length; i++){
+      const px = positions[i];
+      const r = Math.random();
+      if(i === 0 || r < 0.4){
+        // erstes Element immer Coin -- weicher Einstieg
+        coins.push({x: px, level: lvl});
+      } else if(r < 0.75){
+        const w = 24 + Math.random()*22;
+        const h = 28 + Math.random()*18;
+        obstacles.push({x: px, w, h, type:'low', level: lvl});
+      } else {
+        ramps.push({x: px, w: 130, level: lvl});
+      }
+    }
+  }
+
+  function start(){
+    document.getElementById('screenStart').classList.add('hidden');
+    document.getElementById('screenOver').classList.add('hidden');
+    reset();
+    resetSpawnSchedule();
+    preSpawnWorld();
+    state = STATE.PLAYING;
+  }
+  // Wird beim "ich waere jetzt tot"-Event aufgerufen. Wenn Lives > 0: Life weg, kurze
+  // Unverwundbarkeit + Respawn. Sonst: echtes Game Over.
+  function loseLifeOrGameOver(){
+    if(lives > 0){
+      lives--;
+      updateLivesDisplay();
+      invincibleUntil = timeAlive + 1.5;
+      // Zustand auf "lebt-und-laeuft" zuruecksetzen -- egal aus welcher Situation
+      state = STATE.PLAYING;
+      slideProgress = 0;
+      activeRamp = null;
+      player.y = groundY() - player.h;
+      player.vy = 0;
+      player.onGround = true;
+      player.jumpsUsed = 0;
+      player.customGravity = null;
+      puff(player.x + player.w/2, player.y + player.h/2, 18, true);
+      popups.push({ x: player.x + player.w/2, y: player.y - 10, text: '-1 LIFE', age: 0, life: 1.0 });
+    } else {
+      gameOver();
+    }
+  }
+  function gameOver(){
+    state = STATE.OVER;
+    const m = Math.floor(distance);
+    if(m > best){
+      best = m;
+      try{ localStorage.setItem('fmrun_best', String(best)); }catch(e){}
+    }
+    const newBest = (m >= best && m > 0);
+    document.getElementById('overText').textContent = m + ' m   ' + (newBest ? 'new best!' : 'Best: ' + best + ' m');
+    document.getElementById('screenOver').classList.remove('hidden');
+    puff(player.x + player.w/2, player.y + player.h/2, 24, true);
+  }
+
+  // ---------- spawning ----------
+  function spawnCoin(lvl){
+    coins.push({x: W + 20, level: lvl});
+  }
+  function spawnGap(lvl){
+    const w = 80 + Math.random()*50;
+    gaps.push({x: W + 20, w, level: lvl});
+  }
+  function spawnRamp(lvl){
+    const w = 110 + Math.random()*40;
+    ramps.push({x: W + 20, w, level: lvl});
+  }
+  function spawnObstacle(lvl){
+    const r = Math.random();
+    if(r < 0.55){
+      const w = 24 + Math.random()*22;
+      const h = 28 + Math.random()*18;
+      obstacles.push({x: W + 20, w, h, type:'low', level: lvl});
+    } else if(r < 0.85){
+      const w = 26;
+      const h = 60 + Math.random()*20;
+      obstacles.push({x: W + 20, w, h, type:'tall', level: lvl});
+    } else {
+      const w = 22, h = 32;
+      obstacles.push({x: W + 20, w, h, type:'low', level: lvl});
+      obstacles.push({x: W + 20 + w + 28, w, h, type:'low', level: lvl});
+    }
+  }
+
+  // ---------- Patterns ----------
+  // Scripted Spawn-Sequenzen, die mehrere Elemente eng platzieren -- Skill-Test fuer
+  // Charakter-Wechsel. Format pro Op:
+  //   type:    'obstacle' | 'gap' | 'ramp' | 'coin'
+  //   dx:      Abstand zur RECHTEN KANTE des vorherigen Elements (Erste Op: zu W+20)
+  //   lvlOff:  optional, Level-Offset relativ zu currentLevel (z.B. +1 fuer "Etage drueber")
+  //   kind, w: optional, typ-spezifisch
+  const PATTERNS = {
+    // Sasch -> Shizzo -> Sasch
+    coin_sandwich: [
+      { type: 'obstacle', kind: 'low', dx:  0 },
+      { type: 'coin',                  dx: 60 },
+      { type: 'obstacle', kind: 'low', dx: 60 }
+    ],
+    // LonG -> Lou mid-air
+    gap_ramp: [
+      { type: 'gap',                   dx:   0, w: 100 },
+      { type: 'ramp',                  dx: 100, w: 130 }
+    ],
+    // Sasch -> Lou
+    obstacle_ramp: [
+      { type: 'obstacle', kind: 'low', dx:  0 },
+      { type: 'ramp',                  dx: 60,  w: 130 }
+    ],
+    // Sasch-only
+    triple_obstacles: [
+      { type: 'obstacle', kind: 'low', dx:  0 },
+      { type: 'obstacle', kind: 'low', dx: 70 },
+      { type: 'obstacle', kind: 'low', dx: 70 }
+    ],
+    // LonG -> Sasch mid-air -- frueher unmoeglich wegen Tap-Jump, jetzt drin
+    gap_obstacle: [
+      { type: 'gap',                   dx:  0, w: 100 },
+      { type: 'obstacle', kind: 'low', dx: 80 }
+    ],
+    // Sasch -> LonG -> Sasch
+    obstacle_gap_obstacle: [
+      { type: 'obstacle', kind: 'low', dx:  0 },
+      { type: 'gap',                   dx: 70,  w: 90 },
+      { type: 'obstacle', kind: 'low', dx: 70 }
+    ],
+    // LonG -> Shizzo -> Sasch (Drei-Switch-Combo)
+    gap_coin_obstacle: [
+      { type: 'gap',                   dx:  0,  w: 100 },
+      { type: 'coin',                  dx: 30 },
+      { type: 'obstacle', kind: 'low', dx: 50 }
+    ],
+    // Shizzo run -- 3 Coins in Reihe
+    coin_chain: [
+      { type: 'coin',                  dx:  0 },
+      { type: 'coin',                  dx: 25 },
+      { type: 'coin',                  dx: 25 }
+    ],
+    // LonG-test: 3 Loecher mit Lande-Spacing fuer Auto-Jump
+    triple_gaps: [
+      { type: 'gap',                   dx:   0, w: 90 },
+      { type: 'gap',                   dx: 180, w: 90 },
+      { type: 'gap',                   dx: 180, w: 90 }
+    ],
+    // Lou -> LonG nach Aufstieg: Rampe auf Lvl k, Loch auf Lvl k+1 sequentiell danach
+    ramp_gap: [
+      { type: 'ramp',                  dx:   0, w: 130 },
+      { type: 'gap',                   dx: 100, w: 100, lvlOff: 1 }
+    ],
+    // LonG springt ueber Loch, mid-air auf Shizzo wechseln um die Air-Coin zu greifen.
+    // Coin schwebt mittig ueber dem Loch, auf Hoehe des LonG-Sprung-Apex.
+    gap_aircoin: [
+      { type: 'gap',  dx:   0, w: 100 },
+      { type: 'coin', dx: -50,         dy: 158 }
+    ],
+    // ----- Ebene 6: Top-Level Rampen-Varianten -----
+    // Auf MAX_LEVEL ist die Rampe ein Boost-Pad (Arc-Jump statt Slide).
+    // dy = Schwebehoehe ueber Top-Floor (228px = "Etage 7"-Position),
+    // dx Abstand zur Rampe damit der Spieler durch den Bogen "hineinfliegt".
+    top_ramp_alone: [
+      { type: 'ramp', dx:  0, w: 130 }
+    ],
+    top_ramp_coin: [
+      { type: 'ramp', dx:  0, w: 130 },
+      { type: 'coin', dx: 50, dy: 228 }
+    ],
+    top_arc_coins: [
+      { type: 'ramp', dx:  0, w: 130 },
+      { type: 'coin', dx: 30, dy: 228 },
+      { type: 'coin', dx: 25, dy: 228 },
+      { type: 'coin', dx: 25, dy: 228 }
+    ],
+    ramp_oneup: [
+      { type: 'ramp',  dx:  0, w: 130 },
+      { type: 'oneup', dx: 80,         dy: 228 }
+    ]
+  };
+
+  // Pattern-Spawnrate pro Etage (Events pro 100m).
+  // Levels 1-4 nutzen identische Werte (= Level 4 Baseline). Level 0 sanfter, Level 5 speziell.
+  const PATTERN_RATES = {
+    coin_sandwich:         [16, 28, 28, 28, 28,  0],
+    gap_ramp:              [13, 24, 24, 24, 24,  0],
+    obstacle_ramp:         [10, 24, 24, 24, 24,  0],
+    triple_obstacles:      [ 8, 24, 24, 24, 24, 32],
+    gap_obstacle:          [ 6, 22, 22, 22, 22, 28],
+    obstacle_gap_obstacle: [ 4, 18, 18, 18, 18, 22],
+    gap_coin_obstacle:     [ 5, 20, 20, 20, 20,  0],
+    coin_chain:            [12, 18, 18, 18, 18,  0],
+    triple_gaps:           [ 4, 18, 18, 18, 18, 25],
+    ramp_gap:              [ 4, 16, 16, 16, 16,  0],
+    // gap_aircoin: Loch mit Coin in der Luft daruber (nur via LonG-Apex erreichbar).
+    // Belohnt mid-air Switch von LonG zu Shizzo. Auf allen Ebenen, sanfter auf Ebene 1.
+    gap_aircoin:           [15, 35, 35, 35, 35, 35],
+    // ----- Ebene-6-exklusive Rampen-Varianten mit 40/30/20/10 Verteilung -----
+    // Total ~200 events/100m = ~1 Rampe alle 5s @ Top-Speed. Deutlich mehr Action.
+    top_ramp_alone:        [ 0,  0,  0,  0,  0, 80], // 40% -- Rampe ohne Reward
+    top_ramp_coin:         [ 0,  0,  0,  0,  0, 60], // 30% -- Rampe + 1 Coin
+    top_arc_coins:         [ 0,  0,  0,  0,  0, 40], // 20% -- Rampe + 3 Coins
+    ramp_oneup:            [ 0,  0,  0,  0,  0, 20]  // 10% -- Rampe + 1up (eligibility-gated)
+  };
+
+  function spawnPattern(name, lvl){
+    const pattern = PATTERNS[name];
+    if(!pattern) return;
+    let curX = W + 20;
+    for(const op of pattern){
+      curX += op.dx;
+      const x = curX;
+      // Level-Offset: Patterns koennen Elemente auf andere Etagen platzieren (z.B. Loch
+      // auf Etage k+1 nach einer Rampe von k nach k+1).
+      const targetLvl = lvl + (op.lvlOff || 0);
+      if(targetLvl < 0 || targetLvl > MAX_LEVEL){
+        // Ziel-Etage existiert nicht -> Op ueberspringen, aber curX trotzdem fortfuehren
+        // mit Default-Breite, damit weitere Ops im Pattern ihren relativen Abstand behalten
+        curX += op.w || 60;
+        continue;
+      }
+      if(op.type === 'obstacle'){
+        const kind = op.kind || 'low';
+        let w, h;
+        if(kind === 'tall'){ w = 26; h = 60 + Math.random()*20; }
+        else { w = 24 + Math.random()*22; h = 28 + Math.random()*18; }
+        obstacles.push({ x, w, h, type: kind, level: targetLvl });
+        curX += w;
+      } else if(op.type === 'gap'){
+        const w = op.w || (80 + Math.random()*50);
+        gaps.push({ x, w, level: targetLvl });
+        curX += w;
+      } else if(op.type === 'ramp'){
+        const w = op.w || (110 + Math.random()*40);
+        ramps.push({ x, w, level: targetLvl });
+        curX += w;
+      } else if(op.type === 'coin'){
+        const c = { x, level: targetLvl };
+        if(op.dy != null) c.yOffset = op.dy; // optionale Hoehe ueber dem Boden (Standard: COIN_Y_OFFSET)
+        coins.push(c);
+        curX += COIN_RADIUS * 2;
+      } else if(op.type === 'oneup'){
+        const u = { x, level: targetLvl };
+        if(op.dy != null) u.yOffset = op.dy; // optionale Schwebehoehe ueber dem Boden
+        oneUps.push(u);
+        curX += 32;
+      }
+    }
+  }
+  // Rechtester Eintrag (Position + Typ) auf einer bestimmten Etage.
+  // Wird pro Etage benoetigt, weil jede Etage ihre eigene Spawn-Pipeline hat.
+  function rightmostEntityInfoForLevel(lvl){
+    let r = -Infinity;
+    let type = null;
+    for(const o of obstacles)  if(o.level === lvl  && o.x  + o.w  > r) { r = o.x + o.w; type = 'obstacle'; }
+    for(const rp of ramps)     if(rp.level === lvl && rp.x + rp.w > r) { r = rp.x + rp.w; type = 'ramp'; }
+    for(const g of gaps)       if(g.level === lvl  && g.x  + g.w  > r) { r = g.x + g.w; type = 'gap'; }
+    for(const c of coins)      if(c.level === lvl  && c.x  + COIN_RADIUS > r) { r = c.x + COIN_RADIUS; type = 'coin'; }
+    return { x: r, type };
+  }
+
+  // Pro Frame: jede Etage bekommt eine eigene Spawn-Roll.
+  // Damit die anderen Etagen lebendig wirken (Player sieht hin, was kommt),
+  // werden sie alle parallel mit ihren eigenen Etagen-Raten befuellt.
+  function tickSpawns(distanceMeters){
+    for(let lvl = 0; lvl <= MAX_LEVEL; lvl++){
+      tickSpawnsForLevel(lvl, distanceMeters);
+    }
+  }
+  function tickSpawnsForLevel(lvl, distanceMeters){
+    const last = rightmostEntityInfoForLevel(lvl);
+    const newSpawnX = W + 20;
+
+    // Schedule-basierte Kandidaten: Typ ist "ueberfaellig" wenn Distanz >= scheduled
+    const candidates = [];
+    for(const type of ['coin', 'obstacle', 'gap', 'ramp']){
+      if(distance >= nextSpawnDistance[type][lvl]){
+        candidates.push({kind:'type', name:type});
+      }
+    }
+    // Pattern-Rolls bleiben Bernoulli (= rare Highlight-Events)
+    for(const pname in PATTERN_RATES){
+      const r = PATTERN_RATES[pname][lvl];
+      if(r <= 0) continue;
+      // ramp_oneup auf Ebene 6 nur wenn Eligibility frei (1x pro Visit)
+      if(pname === 'ramp_oneup' && !oneUpEligible) continue;
+      if(Math.random() < (r / 10000) * distanceMeters) candidates.push({kind:'pattern', name:pname});
+    }
+    if(candidates.length === 0) return;
+
+    // Filter-Phase: Buffer-Check
+    const allowed = [];
+    for(const cand of candidates){
+      let minGap;
+      if(cand.kind === 'pattern'){
+        minGap = 90;
+      } else if(last.type && SPAWN_MIN_GAP[last.type] && SPAWN_MIN_GAP[last.type][cand.name] != null){
+        minGap = SPAWN_MIN_GAP[last.type][cand.name];
+      } else {
+        minGap = SPAWN_BUFFER_DEFAULT;
+      }
+      if(last.x + minGap <= newSpawnX) allowed.push(cand);
+    }
+    if(allowed.length === 0) return;
+
+    const chosen = allowed[Math.floor(Math.random() * allowed.length)];
+    if(chosen.kind === 'pattern'){
+      spawnPattern(chosen.name, lvl);
+      // 1up-Pattern verbraucht die Eligibility -- erst bei naechstem MAX_LEVEL-Eintritt wieder frei
+      if(chosen.name === 'ramp_oneup') oneUpEligible = false;
+    } else {
+      const fns = { coin: spawnCoin, obstacle: spawnObstacle, gap: spawnGap, ramp: spawnRamp };
+      fns[chosen.name](lvl);
+      // Schedule fuer diesen Typ neu setzen -- bounded jitter sorgt fuer regelmaessige Pacing
+      nextSpawnDistance[chosen.name][lvl] = computeNextDist(chosen.name, lvl, distance, false);
+    }
+  }
+
+  // ---------- particles ----------
+  function puff(x,y,n,big){
+    for(let i=0;i<n;i++){
+      particles.push({
+        x, y,
+        vx: (Math.random()-0.5)*(big?320:120),
+        vy: (Math.random()-0.9)*(big?260:100),
+        life: 0.4 + Math.random()*(big?0.6:0.3),
+        age: 0,
+        r: 1 + Math.random()*(big?3.5:2.2),
+        c: big ? '#ff4d8d' : '#ffcc33'
+      });
+    }
+  }
+
+  // ---------- update / draw ----------
+
+  // Sidescroll + Score laufen in PLAYING, SLIDING und FALLING -- so bleibt der Spielfluss erhalten
+  function tickScrollingWorld(dt){
+    timeAlive += dt;
+    // Etagen-Basisspeed + Distanz-Rampe (2% pro 100m, gecappt bei +75% nach ~3750m)
+    const baseSpeed = SPEEDS[Math.min(currentLevel, SPEEDS.length - 1)];
+    const distanceMultiplier = 1 + Math.min(0.75, distance / 5000);
+    const targetSpeed = baseSpeed * distanceMultiplier;
+    speed += (targetSpeed - speed) * Math.min(1, dt * SPEED_LERP);
+    const distanceThisFrameM = (speed * dt) / PIXELS_PER_METER;
+    distance += distanceThisFrameM;
+    document.getElementById('score').textContent = Math.floor(distance) + ' m';
+
+    // Spawns pro Typ basierend auf Etagen-Raten (Poisson-artig)
+    tickSpawns(distanceThisFrameM);
+
+    // Sidescroll: Hindernisse, Treppen, Luecken bewegen sich kontinuierlich
+    for(let i=obstacles.length-1;i>=0;i--){
+      const o = obstacles[i];
+      o.x -= speed * dt;
+      if(o.x + o.w < -10) obstacles.splice(i,1);
+    }
+    for(let i=ramps.length-1;i>=0;i--){
+      const rp = ramps[i];
+      rp.x -= speed * dt;
+      // aktive Schraege NICHT despawnen, sonst bricht der laufende Slide ab
+      if(rp.x + rp.w < -10 && rp !== activeRamp) ramps.splice(i,1);
+    }
+    for(let i=gaps.length-1;i>=0;i--){
+      const g = gaps[i];
+      g.x -= speed * dt;
+      if(g.x + g.w < -10) gaps.splice(i,1);
+    }
+    for(let i=coins.length-1;i>=0;i--){
+      const c = coins[i];
+      c.x -= speed * dt;
+      if(c.x + COIN_RADIUS < -10) coins.splice(i,1);
+    }
+    for(let i=oneUps.length-1;i>=0;i--){
+      const u = oneUps[i];
+      u.x -= speed * dt;
+      if(u.x < -30) oneUps.splice(i,1);
+    }
+
+    // Hintergrund-Animation (laeuft nur bei aktivem Sidescroll)
+    for(const s of stars) s.tw += dt*2.0;
+    for(const c of clouds){
+      c.x -= 30*c.s*dt;
+      if(c.x + c.w < -20){ c.x = W + 20; c.y = 40 + Math.random()*(H*0.4); }
+    }
+  }
+
+  function tickParticles(dt){
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.age += dt;
+      if(p.age >= p.life){ particles.splice(i,1); continue; }
+      p.vy += GRAVITY*0.4*dt;
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+    }
+    // Popups: floaten nach oben + faden aus
+    for(let i=popups.length-1;i>=0;i--){
+      const p = popups[i];
+      p.age += dt;
+      if(p.age >= p.life){ popups.splice(i,1); continue; }
+      p.y -= 60 * dt;
+    }
+  }
+
+  function update(dt){
+    // ---------- SLIDING: Slide-Progress haengt an der Geometrie der Schraege ----------
+    // Player-Mitte beginnt an der linken Kante (slideProgress=0) und endet
+    // an der rechten Kante der Schraege (slideProgress=1). So matchen Player-Winkel
+    // und Schraegen-Winkel automatisch -- unabhaengig von der Welt-Geschwindigkeit.
+    if(state === STATE.SLIDING){
+      tickScrollingWorld(dt);
+      if(activeRamp){
+        const pcx = player.x + player.w/2;
+        slideProgress = Math.max(0, Math.min(1, (pcx - activeRamp.x) / activeRamp.w));
+        if(slideProgress >= 1){
+          slideProgress = 0;
+          currentLevel++;
+          state = STATE.PLAYING;
+          // ausgenutzte Ramp freigeben + naechsten Frame normal despawnen lassen
+          activeRamp = null;
+          puff(player.x + player.w/2, player.y + player.h, 10);
+          // Beim Eintritt auf Ebene 6: 1up-Eligibility freischalten (frische Visit)
+          if(currentLevel === MAX_LEVEL){
+            oneUpEligible = true;
+          }
+        }
+      } else {
+        // Sicherheits-Fallback (sollte nicht passieren)
+        slideProgress = 0;
+        state = STATE.PLAYING;
+      }
+      tickParticles(dt);
+      return;
+    }
+
+    // ---------- FALLING: durch Luecke, Sidescroll laeuft weiter ----------
+    if(state === STATE.FALLING){
+      if(currentLevel > 0){
+        slideProgress -= dt / FALL_DURATION;
+        if(slideProgress <= -1){
+          slideProgress = 0;
+          currentLevel--;
+          state = STATE.PLAYING;
+          puff(player.x + player.w/2, player.y + player.h, 8);
+        }
+        tickScrollingWorld(dt);
+      } else {
+        // Level 0: physikalischer Sturz aus dem Bild -> Game Over (Lives schuetzen hier nicht)
+        // Bewusst harte Konsequenz wenn man durch den Boden faellt -- Sasch/LonG haetten geholfen.
+        player.vy += GRAVITY * dt;
+        player.y += player.vy * dt;
+        if(player.y > H + 50){
+          loseLifeOrGameOver();
+        } else {
+          tickScrollingWorld(dt);
+        }
+      }
+      tickParticles(dt);
+      return;
+    }
+
+    if(state !== STATE.PLAYING){
+      // Menu/Over: nur dezente Hintergrund-Animation
+      for(const s of stars) s.tw += dt*1.5;
+      for(const c of clouds){ c.x -= 20*c.s*dt; if(c.x + c.w < -20) c.x = W + 20; }
+      tickParticles(dt);
+      return;
+    }
+
+    // ---------- PLAYING: volle Physik + Kollisionen ----------
+    // Spieler-Physik (customGravity hat Vorrang -- gesetzt von LonGs Auto-Jump)
+    const gNow = player.customGravity || GRAVITY;
+    player.vy += gNow * dt;
+    player.y  += player.vy * dt;
+    const gy = groundY();
+    if(player.y + player.h >= gy){
+      player.y = gy - player.h;
+      player.vy = 0;
+      if(!player.onGround){
+        puff(player.x + player.w/2, gy, 6);
+      }
+      player.onGround = true;
+      player.jumpsUsed = 0;
+      player.customGravity = null; // Override beim Landen aufheben
+    } else {
+      player.onGround = false;
+    }
+    player.runFrame += dt * (player.onGround ? 14 : 0);
+
+    // Score, Spawn, Sidescroll, BG-Animation
+    tickScrollingWorld(dt);
+
+    // ---------- Luecken-Detection ----------
+    // LonG: Auto-Jump bei Annaeherung (Lookahead, damit Sprung vor der Kante startet)
+    // Andere: Spielermitte ueber Luecke -> Sturz
+    if(player.onGround){
+      if(activeCharacter === 'long'){
+        const pRight = player.x + player.w;
+        for(const g of gaps){
+          if(g.level !== currentLevel) continue;
+          // Sprung triggern, sobald Player-Rechtskante in Reichweite kommt
+          if(pRight + LONG_GAP_LOOKAHEAD >= g.x && pRight <= g.x + g.w){
+            triggerLongJump(g);
+            break;
+          }
+        }
+      } else {
+        const pcx = player.x + player.w/2;
+        for(const g of gaps){
+          if(g.level !== currentLevel) continue;
+          if(pcx >= g.x && pcx <= g.x + g.w){
+            state = STATE.FALLING;
+            slideProgress = 0;
+            player.onGround = false;
+            player.vy = 60;
+            puff(player.x + player.w/2, player.y + player.h, 5);
+            break;
+          }
+        }
+      }
+    }
+
+    // ---------- Schraegen-Kollision ----------
+    // Nur Lou interagiert mit Schraegen. Andere ignorieren die Hitbox komplett.
+    // Auf MAX_LEVEL (Ebene 6) gibt es keine hoehere Etage -> die Rampe wird zum
+    // Boost-Pad und triggert einen Arc-Jump statt Slide.
+    if(state === STATE.PLAYING && activeCharacter === 'lou'){
+      for(const rp of ramps){
+        if(rp.level !== currentLevel) continue;
+        const ry0 = levelFloorY(rp.level + 1); // top
+        const ry1 = levelFloorY(rp.level);     // bottom
+        if(player.x < rp.x + rp.w && player.x + player.w > rp.x &&
+           player.y < ry1 && player.y + player.h > ry0){
+          if(currentLevel === MAX_LEVEL){
+            triggerLouArcJump();
+          } else {
+            state = STATE.SLIDING;
+            slideProgress = 0;
+            activeRamp = rp;
+            player.vy = 0;
+            puff(player.x + player.w/2, groundY(), 8);
+          }
+          break;
+        }
+      }
+    }
+
+    // ---------- Hindernis-Kollision / Sasch-Zerstoerung ----------
+    // Sasch zerstoert beruehrte Hindernisse (smash + Particle-Burst, dann weg
+    // aus dem Array -- damit ein Wechsel mid-overlap zu Lou & Co. nicht
+    // doch noch in eine "Geister"-Hitbox laeuft).
+    // Alle anderen sterben bei Beruehrung -- es sei denn unverwundbar (nach Life-Loss).
+    if(state === STATE.PLAYING){
+      const px = player.x + 6, py = player.y + 4;
+      const pw = player.w - 12, ph = player.h - 6;
+      if(activeCharacter === 'sasch'){
+        for(let i = obstacles.length - 1; i >= 0; i--){
+          const o = obstacles[i];
+          if(o.level !== currentLevel) continue;
+          const oy = levelFloorY(o.level) - o.h;
+          if(px < o.x + o.w && px + pw > o.x && py < oy + o.h && py + ph > oy){
+            puff(o.x + o.w/2, oy + o.h/2, 14, true);
+            obstacles.splice(i, 1);
+          }
+        }
+      } else if(timeAlive >= invincibleUntil){
+        for(const o of obstacles){
+          if(o.level !== currentLevel) continue;
+          const oy = levelFloorY(o.level) - o.h;
+          if(px < o.x + o.w && px + pw > o.x && py < oy + o.h && py + ph > oy){
+            loseLifeOrGameOver();
+            break;
+          }
+        }
+      }
+    }
+
+    // ---------- 1up-Pickup ----------
+    // Nur Shizzo ist der Sammler -- 1ups verhalten sich wie Coins:
+    // andere Charaktere laufen ohne Effekt durch das 1up hindurch.
+    if(state === STATE.PLAYING && activeCharacter === 'shizzo'){
+      for(let i = oneUps.length - 1; i >= 0; i--){
+        const u = oneUps[i];
+        if(u.level !== currentLevel) continue;
+        const uYOff = u.yOffset != null ? u.yOffset : 50;
+        const uy = levelFloorY(u.level) - uYOff;
+        const r = 14;
+        if(u.x + r > player.x && u.x - r < player.x + player.w &&
+           uy + r > player.y && uy - r < player.y + player.h){
+          if(lives < MAX_LIVES){
+            lives++;
+            updateLivesDisplay();
+            popups.push({ x: u.x, y: uy - 10, text: '+1 LIFE', age: 0, life: 1.2 });
+          } else {
+            // Bereits Max -> Bonus in Coins umwandeln, damit's nicht "wertlos" wirkt
+            coinsTotal += 100;
+            try { localStorage.setItem('fmrun_coins', String(coinsTotal)); } catch(e){}
+            document.getElementById('coinsValue').textContent = coinsTotal.toLocaleString('de-DE');
+            popups.push({ x: u.x, y: uy - 10, text: '+100', age: 0, life: 1.0 });
+          }
+          puff(u.x, uy, 16, true);
+          oneUps.splice(i, 1);
+        }
+      }
+    }
+
+    // ---------- Coin-Pickup ----------
+    // Nur Shizzo kann Coins einsammeln. Bei anderen scrollen die Coins einfach durch.
+    if(state === STATE.PLAYING && activeCharacter === 'shizzo'){
+      for(let i=coins.length-1;i>=0;i--){
+        const c = coins[i];
+        if(c.level !== currentLevel) continue;
+        const yOff = c.yOffset != null ? c.yOffset : COIN_Y_OFFSET;
+        const cy = levelFloorY(c.level) - yOff;
+        if(c.x + COIN_RADIUS > player.x && c.x - COIN_RADIUS < player.x + player.w &&
+           cy + COIN_RADIUS > player.y && cy - COIN_RADIUS < player.y + player.h){
+          const value = COIN_VALUES[c.level] || 0;
+          coinsTotal += value;
+          try { localStorage.setItem('fmrun_coins', String(coinsTotal)); } catch(e){}
+          document.getElementById('coinsValue').textContent = coinsTotal.toLocaleString('de-DE');
+          popups.push({ x: c.x, y: cy - 10, text: '+' + value, age: 0, life: 0.9 });
+          coins.splice(i, 1);
+        }
+      }
+    }
+
+    tickParticles(dt);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // sky already via CSS gradient on canvas bg; draw stars
+    for(const s of stars){
+      const a = 0.4 + Math.sin(s.tw)*0.4;
+      ctx.globalAlpha = Math.max(0,Math.min(1,a));
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // clouds (soft blobs)
+    for(const c of clouds){
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.beginPath();
+      ctx.ellipse(c.x, c.y, c.w*0.6, c.w*0.22, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // Spieler-Bildschirm-Position (konstant -- fuer Etagen-Linien-Vergleich + Gap-Cut)
+    const playerFloorScreenY = H * 0.82;
+
+    // Pro Etage ein eigener Solid-Hintergrund, sodass die Ebenen optisch unterscheidbar sind.
+    // Jeder Streifen reicht von der Decke (= Boden der naechsthoeheren Ebene) bis zum eigenen Boden.
+    // Level 0 erstreckt sich zusaetzlich nach unten zur Bildschirmkante (Underground).
+    // MAX_LEVEL (oberste Etage) bleibt transparent -> Sky bleibt sichtbar.
+    const LEVEL_COLORS = [
+      '#1a2348', // Level 0 - deep blue
+      '#2a1840', // Level 1 - deep purple
+      '#1a3a35', // Level 2 - deep teal
+      '#3a1a28', // Level 3 - deep wine
+      '#3a2818', // Level 4 - deep amber
+      null       // Level 5 (MAX_LEVEL) - transparent (Sky)
+    ];
+    for(let lvl = 0; lvl <= MAX_LEVEL; lvl++){
+      const color = LEVEL_COLORS[lvl];
+      if(!color) continue;
+      const top    = (lvl < MAX_LEVEL) ? levelFloorY(lvl + 1) : -1;
+      const bottom = (lvl === 0) ? H : levelFloorY(lvl);
+      if(bottom <= top) continue;
+      const drawTop    = Math.max(top, -1);
+      const drawBottom = Math.min(bottom, H + 1);
+      if(drawBottom <= drawTop) continue;
+      ctx.fillStyle = color;
+      ctx.fillRect(0, drawTop, W, drawBottom - drawTop);
+    }
+
+    // Etagen-Linien: alle Levels rendern
+    //  - oberhalb Spieler: Slab + gelbe Akzentlinie (Etage in der Luft)
+    //  - auf Spieler-Hoehe: starke gelbe Linie auf gefuelltem Boden
+    //  - unterhalb (besuchte Etagen): schwache gelbe Linie im Boden
+    for(let lvl = 0; lvl <= MAX_LEVEL; lvl++){
+      const fy = levelFloorY(lvl);
+      if(fy < -10 || fy > H + 10) continue;
+      if(fy < playerFloorScreenY - 0.5){
+        // Etage in der Luft
+        const pgrad = ctx.createLinearGradient(0, fy, 0, fy + 6);
+        pgrad.addColorStop(0, 'rgba(26,35,72,0.85)');
+        pgrad.addColorStop(1, 'rgba(7,11,26,0.85)');
+        ctx.fillStyle = pgrad;
+        ctx.fillRect(0, fy, W, 6);
+        ctx.strokeStyle = 'rgba(255,204,51,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
+      } else if(fy > playerFloorScreenY + 0.5){
+        // unterhalb des Spielers -- schwacher Marker
+        ctx.strokeStyle = 'rgba(255,204,51,0.18)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
+      } else {
+        // exakt auf Spieler-Hoehe
+        ctx.strokeStyle = 'rgba(255,204,51,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
+      }
+    }
+
+    // Luecken: schmaler Strip in der Plattform-Linie der jeweiligen Etage.
+    // Y-Position folgt levelFloorY(g.level) -- gilt fuer alle Etagen, sodass auch
+    // hoehere/niedrigere Etagen sichtbar Loecher in ihrem Floor haben.
+    for(const g of gaps){
+      if(g.x + g.w < 0 || g.x > W) continue;
+      const gy = levelFloorY(g.level);
+      if(gy < -10 || gy > H + 10) continue;
+      ctx.clearRect(g.x, gy - 2, g.w, 5);
+    }
+
+    // Treppen (Schraegen) -- Dreieck von Etage k bis Etage k+1
+    for(const rp of ramps){
+      const bottomY = levelFloorY(rp.level);
+      const topY    = levelFloorY(rp.level + 1);
+      if(bottomY < -50 || topY > H + 50) continue;
+      const rgrad = ctx.createLinearGradient(rp.x, topY, rp.x + rp.w, bottomY);
+      rgrad.addColorStop(0, '#ffd95c');
+      rgrad.addColorStop(1, '#ff8a3d');
+      ctx.fillStyle = rgrad;
+      ctx.beginPath();
+      ctx.moveTo(rp.x, bottomY);
+      ctx.lineTo(rp.x + rp.w, topY);
+      ctx.lineTo(rp.x + rp.w, bottomY);
+      ctx.closePath();
+      ctx.fill();
+      // weisse Diagonal-Akzentlinie auf der Lauf-Seite
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(rp.x, bottomY);
+      ctx.lineTo(rp.x + rp.w, topY);
+      ctx.stroke();
+    }
+
+    // Hindernisse -- y aus level abgeleitet, sodass sie mit der Welt mitfahren
+    for(const o of obstacles){
+      const oy = levelFloorY(o.level) - o.h;
+      if(oy < -200 || oy > H + 200) continue;
+      const grd = ctx.createLinearGradient(o.x, oy, o.x, oy + o.h);
+      grd.addColorStop(0,'#ff4d8d');
+      grd.addColorStop(1,'#7a1240');
+      ctx.fillStyle = grd;
+      roundRect(ctx, o.x, oy, o.w, o.h, 4, true, false);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(o.x+3, oy+3, o.w-6, 3);
+    }
+
+    // 1ups -- pinker Pulskreis mit "1UP" innen, schwebt hoch in der Luft (Default 50px ueber Boden,
+    // im ramp_oneup Pattern aber 228px ueber dem Top-Floor -- nur via Boost-Rampe erreichbar)
+    const oneUpPulse = 1 + Math.sin(timeAlive * 8) * 0.1;
+    for(const u of oneUps){
+      if(u.x < -30 || u.x > W + 30) continue;
+      const uYOff = u.yOffset != null ? u.yOffset : 50;
+      const uy = levelFloorY(u.level) - uYOff;
+      if(uy < -30 || uy > H + 30) continue;
+      const r = 16 * oneUpPulse;
+      // Glow
+      ctx.fillStyle = 'rgba(255, 77, 141, 0.25)';
+      ctx.beginPath(); ctx.arc(u.x, uy, r * 1.6, 0, Math.PI*2); ctx.fill();
+      // Aussenring
+      ctx.fillStyle = '#a01838';
+      ctx.beginPath(); ctx.arc(u.x, uy, r, 0, Math.PI*2); ctx.fill();
+      // Innenfuellung
+      ctx.fillStyle = '#ff4d8d';
+      ctx.beginPath(); ctx.arc(u.x, uy, r - 2.5, 0, Math.PI*2); ctx.fill();
+      // Highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath(); ctx.arc(u.x - 4, uy - 4, r * 0.32, 0, Math.PI*2); ctx.fill();
+      // "1UP"-Text
+      ctx.fillStyle = '#fff';
+      ctx.font = '900 11px -apple-system, BlinkMacSystemFont, Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('1UP', u.x, uy + 0.5);
+    }
+
+    // Coins -- Goldkreis mit Highlight, leichte Wackel-Animation (Game-Time, friert bei Pause)
+    // Werden auf allen Etagen gerendert (Lebendigkeit), interagieren aber nur mit dem Spieler
+    // wenn er auf der gleichen Etage UND als Shizzo unterwegs ist.
+    const coinPulse = Math.sin(timeAlive * 6);
+    for(const c of coins){
+      const yOff = c.yOffset != null ? c.yOffset : COIN_Y_OFFSET;
+      const cy = levelFloorY(c.level) - yOff + coinPulse * 1.5;
+      if(cy < -30 || cy > H + 30) continue;
+      // Aussenring (dunkler)
+      ctx.fillStyle = '#cc8a00';
+      ctx.beginPath(); ctx.arc(c.x, cy, COIN_RADIUS, 0, Math.PI*2); ctx.fill();
+      // Innenfuellung
+      ctx.fillStyle = '#ffcc33';
+      ctx.beginPath(); ctx.arc(c.x, cy, COIN_RADIUS - 2, 0, Math.PI*2); ctx.fill();
+      // Highlight oben links
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath(); ctx.arc(c.x - 3, cy - 3, COIN_RADIUS * 0.35, 0, Math.PI*2); ctx.fill();
+    }
+
+    // player
+    // Spieler -- Flicker-Animation waehrend Unverwundbarkeit nach Life-Loss
+    if(timeAlive < invincibleUntil){
+      ctx.globalAlpha = 0.35 + 0.65 * Math.abs(Math.sin(timeAlive * 22));
+    }
+    drawPlayer(player);
+    ctx.globalAlpha = 1;
+
+    // Coin-Pickup-Popups ("+1", "+25", ...) -- floaten nach oben, faden aus
+    ctx.font = '900 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for(const p of popups){
+      const a = 1 - p.age / p.life;
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = '#ffcc33';
+      ctx.fillText(p.text, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
+
+    // particles
+    for(const p of particles){
+      const a = 1 - p.age/p.life;
+      ctx.globalAlpha = Math.max(0,a);
+      ctx.fillStyle = p.c;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPlayer(p){
+    const bob = p.onGround ? Math.sin(p.runFrame)*2 : 0;
+    const x = p.x, y = p.y + bob;
+
+    // shadow -- skaliert mit absoluter Distanz vom Boden, verschwindet komplett im Sturz
+    const sy = groundY()+2;
+    const dist = Math.abs(sy - (p.y + p.h));
+    const sw = p.w * (p.onGround ? 1 : Math.max(0, 1 - dist/200));
+    if(sw > 0.5){
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(x + p.w/2, sy, sw*0.5, 4, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // body -- Farbe vom aktiven Charakter
+    const char = CHARACTERS[activeCharacter] || CHARACTERS.lou;
+    const bodyGrad = ctx.createLinearGradient(x,y,x,y+p.h);
+    bodyGrad.addColorStop(0, char.body);
+    bodyGrad.addColorStop(1, char.dark);
+    ctx.fillStyle = bodyGrad;
+    roundRect(ctx, x, y, p.w, p.h, 8, true, false);
+
+    // Name -- Schriftgroesse skaliert mit Namens-Laenge, damit's passt
+    const name = char.name;
+    const fontSize = name.length <= 3 ? 20 : name.length <= 4 ? 16 : 13;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = `900 ${fontSize}px -apple-system,Inter,Segoe UI,Roboto,sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, x + p.w/2, y + p.h/2 + 1);
+
+    // eye/visor accent
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(x+4, y+8, p.w-8, 4);
+
+    // legs (simple two-rect cycle)
+    if(p.onGround){
+      const phase = Math.sin(p.runFrame);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(x + 6,  y + p.h, 8, 6 + phase*2);
+      ctx.fillRect(x + p.w - 14, y + p.h, 8, 6 - phase*2);
+    } else {
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(x + 8,  y + p.h, 8, 6);
+      ctx.fillRect(x + p.w - 16, y + p.h, 8, 6);
+    }
+  }
+
+  function roundRect(ctx,x,y,w,h,r,fill,stroke){
+    if(w<2*r) r=w/2; if(h<2*r) r=h/2;
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+    if(fill) ctx.fill();
+    if(stroke) ctx.stroke();
+  }
+
+  // ---------- main loop ----------
+  function frame(t){
+    if(!lastT) lastT = t;
+    let dt = (t - lastT)/1000;
+    lastT = t;
+    if(dt > 0.05) dt = 0.05; // clamp big stalls
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  // initial seed for the menu screen
+  reset();
+  state = STATE.READY;
+  // place player on ground for the menu
+  player.y = groundY() - player.h;
+  // ein zweiter Resize nach dem ersten Layout (Bottom-Nav-Hoehe wird erst dann gemessen)
+  requestAnimationFrame(() => {
+    resize();
+    player.y = groundY() - player.h;
+    seedStars(); seedClouds();
+    requestAnimationFrame(frame);
+  });
+})();
+</script>
+</body>
+</html>
