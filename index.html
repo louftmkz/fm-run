@@ -38,7 +38,8 @@
   .charbtn{flex:1;height:80px;border-radius:14px;border:0;background:var(--char-color);color:#0f0c14;font-weight:900;font-size:18px;letter-spacing:.5px;cursor:pointer;opacity:.5;transition:opacity .12s ease,transform .12s ease,box-shadow .12s ease;font-family:inherit;display:flex;align-items:center;justify-content:center}
   .charbtn:active{transform:scale(.95)}
   .charbtn.active{opacity:1;transform:scale(1.04);box-shadow:0 0 22px var(--char-color),inset 0 0 0 2px rgba(255,255,255,.85)}
-  .top{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;font-weight:700;letter-spacing:.5px;gap:12px}
+  .top{display:flex;justify-content:space-between;align-items:center;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));font-weight:700;letter-spacing:.5px;gap:12px}
+  .charnav{padding-bottom:max(12px,env(safe-area-inset-bottom))}
   .score{font-variant-numeric:tabular-nums;font-size:22px;flex:1;text-align:left}
   .coins{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-size:22px;flex:1;justify-content:center}
   .coin-dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(255,204,51,0.5)}
