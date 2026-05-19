@@ -118,6 +118,16 @@
     canvas.style.width = W + 'px';
     canvas.style.height = H + 'px';
     ctx.setTransform(DPR,0,0,DPR,0,0);
+    // Layout-Shift-Schutz (iOS Safari Adressleiste etc.): Player snappt auf neuen Boden,
+    // damit er bei verkleinertem Viewport nicht unter der gelben Linie stehenbleibt.
+    try {
+      if(player.onGround && state !== STATE.SLIDING && state !== STATE.FALLING){
+        player.y = groundY() - player.h;
+        if(state === STATE.READY || state === STATE.OVER){
+          player.x = Math.max(45, W * 0.10);
+        }
+      }
+    } catch(e){ /* erst-Initialisierung */ }
   }
   window.addEventListener('resize', resize, {passive:true});
   resize();
@@ -318,7 +328,7 @@
     currentLevel = 0;
     slideProgress = 0;
     activeRamp = null;
-    player.x = Math.max(60, W * 0.12);
+    player.x = Math.max(45, W * 0.10);
     player.y = groundY() - player.h;
     player.vy = 0;
     player.onGround = true;
