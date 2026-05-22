@@ -228,6 +228,47 @@
   }
   updateLivesDisplay();
 
+  // ---------- Sprite-System (generisch, fuer Helden-Animationen) ----------
+  // Wiederverwendbar fuer weitere Helden / Animations-States (jump, slide, idle).
+  // Charakter haengt eine SpriteAnim-Instanz an seine Definition; im Render wird
+  // bevorzugt das Sprite gezeichnet, sonst Fallback auf den Kreis/Body-Rect.
+  class SpriteAnim {
+    constructor({src, frames, frameW, frameH, fps, loop=true, freezeFrame=0}){
+      this.frames = frames;
+      this.frameW = frameW;
+      this.frameH = frameH;
+      this.fps = fps;
+      this.loop = loop;
+      this.freezeFrame = freezeFrame; // Frame der gezeigt wird wenn nicht "aktiv" (z.B. in der Luft)
+      this.ready = false;
+      this.img = new Image();
+      this.img.onload = () => { this.ready = true; };
+      this.img.onerror = () => { this.ready = false; };
+      this.img.src = src;
+    }
+    frameAt(time, active=true){
+      if(!active) return this.freezeFrame;
+      const f = Math.floor(time * this.fps);
+      return this.loop ? (((f % this.frames) + this.frames) % this.frames) : Math.min(Math.max(f,0), this.frames-1);
+    }
+    draw(ctx, time, dx, dy, dw, dh, active=true){
+      if(!this.ready) return false;
+      const idx = this.frameAt(time, active);
+      ctx.drawImage(this.img, idx*this.frameW, 0, this.frameW, this.frameH, dx, dy, dw, dh);
+      return true;
+    }
+  }
+
+  const LOU_RUN = new SpriteAnim({
+    src: './sprites/lou-run.png',
+    frames: 8,
+    frameW: 128,
+    frameH: 128,
+    fps: 12,
+    loop: true,
+    freezeFrame: 3 // mittlere Pose -> wirkt wie "in der Luft" wenn Lou nicht laeuft
+  });
+
   // ---------- player ----------
   const player = {
     x: 0, y: 0,
@@ -237,6 +278,7 @@
     jumpsUsed: 0,
     maxJumps: 2,         // double jump for forgiving feel
     runFrame: 0,
+    spriteTime: 0,       // akkumulierte Laufzeit fuer Sprite-Frame-Index
   };
 
   const GRAVITY = 2400;       // px/sec^2
@@ -270,7 +312,7 @@
   //   shizzo -> sammelt Coins (andere koennen sie nicht aufnehmen)
   //   long   -> springt automatisch ueber Loecher
   const CHARACTERS = {
-    lou:    { name: 'Lou',    body: '#ffd95c', dark: '#ff8a3d' },
+    lou:    { name: 'Lou',    body: '#ffd95c', dark: '#ff8a3d', sprite: LOU_RUN },
     sasch:  { name: 'Sasch',  body: '#86efac', dark: '#15803d' },
     shizzo: { name: 'Shizzo', body: '#fca5a5', dark: '#b91c1c' },
     long:   { name: 'LonG',   body: '#93c5fd', dark: '#1e40af' }
@@ -334,6 +376,7 @@
     player.onGround = true;
     player.jumpsUsed = 0;
     player.runFrame = 0;
+    player.spriteTime = 0;
     seedStars();
     seedClouds();
   }
@@ -924,6 +967,8 @@
       player.onGround = false;
     }
     player.runFrame += dt * (player.onGround ? 14 : 0);
+    // Sprite-Time akkumuliert nur am Boden; in der Luft friert das Sprite ein
+    if(player.onGround) player.spriteTime += dt;
 
     // Score, Spawn, Sidescroll, BG-Animation
     tickScrollingWorld(dt);
@@ -1269,7 +1314,10 @@
   }
 
   function drawPlayer(p){
-    const bob = p.onGround ? Math.sin(p.runFrame)*2 : 0;
+    const char = CHARACTERS[activeCharacter] || CHARACTERS.lou;
+    const useSprite = char.sprite && char.sprite.ready;
+    // bei Sprite kein zusaetzlicher Y-Bob -- die Animation hat eigene Vertikal-Bewegung
+    const bob = (useSprite || !p.onGround) ? 0 : Math.sin(p.runFrame)*2;
     const x = p.x, y = p.y + bob;
 
     // shadow -- skaliert mit absoluter Distanz vom Boden, verschwindet komplett im Sturz
@@ -1285,15 +1333,25 @@
       ctx.globalAlpha = 1;
     }
 
-    // body -- Farbe vom aktiven Charakter
-    const char = CHARACTERS[activeCharacter] || CHARACTERS.lou;
+    // -------- Sprite-Pfad (nur fuer Helden mit hinterlegtem Sprite, z.B. Lou) --------
+    if(useSprite){
+      // quadratischer Sprite-Frame; Skalierung so dass die Figur etwa Player-Hoehe hat.
+      // Sprite-Asset hat Whitespace oben/unten -> 1.9x p.h trifft visuell die Hitbox-Hoehe gut.
+      const targetH = p.h * 1.9;
+      const targetW = targetH; // Frames sind 1:1 (128x128)
+      const dx = (x + p.w/2) - targetW/2;
+      const dy = (y + p.h) - targetH; // Fuesse an der Player-Unterkante ausrichten
+      char.sprite.draw(ctx, p.spriteTime, dx, dy, targetW, targetH, p.onGround);
+      return;
+    }
+
+    // -------- Fallback: bisheriges Body-Rect mit Initial / Name --------
     const bodyGrad = ctx.createLinearGradient(x,y,x,y+p.h);
     bodyGrad.addColorStop(0, char.body);
     bodyGrad.addColorStop(1, char.dark);
     ctx.fillStyle = bodyGrad;
     roundRect(ctx, x, y, p.w, p.h, 8, true, false);
 
-    // Name -- Schriftgroesse skaliert mit Namens-Laenge, damit's passt
     const name = char.name;
     const fontSize = name.length <= 3 ? 20 : name.length <= 4 ? 16 : 13;
     ctx.fillStyle = '#1a1a1a';
@@ -1302,11 +1360,9 @@
     ctx.textBaseline = 'middle';
     ctx.fillText(name, x + p.w/2, y + p.h/2 + 1);
 
-    // eye/visor accent
     ctx.fillStyle = 'rgba(0,0,0,0.15)';
     ctx.fillRect(x+4, y+8, p.w-8, 4);
 
-    // legs (simple two-rect cycle)
     if(p.onGround){
       const phase = Math.sin(p.runFrame);
       ctx.fillStyle = '#1a1a1a';

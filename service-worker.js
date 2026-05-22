@@ -2,7 +2,7 @@
 // Strategy: cache-first für statische Assets, network-first für HTML (damit Updates beim
 // neuen Deploy schnell durchkommen).
 
-const CACHE_NAME = 'fm-run-v1';
+const CACHE_NAME = 'fm-run-v2';
 const PRECACHE = [
   './',
   './index.html',
@@ -10,7 +10,8 @@ const PRECACHE = [
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
-  './favicon.png'
+  './favicon.png',
+  './sprites/lou-run.png'
 ];
 
 self.addEventListener('install', (event) => {
