@@ -269,6 +269,36 @@
     freezeFrame: 3 // mittlere Pose -> wirkt wie "in der Luft" wenn Lou nicht laeuft
   });
 
+  const SASCH_RUN = new SpriteAnim({
+  src: './sprites/sasch-run.png',
+  frames: 8,
+  frameW: 128,
+  frameH: 128,
+  fps: 12,
+  loop: true,
+  freezeFrame: 3
+});
+
+const SHIZZO_RUN = new SpriteAnim({
+  src: './sprites/shizzo-run.png',
+  frames: 8,
+  frameW: 128,
+  frameH: 128,
+  fps: 12,
+  loop: true,
+  freezeFrame: 3
+});
+
+const LONG_RUN = new SpriteAnim({
+  src: './sprites/long-run.png',
+  frames: 8,
+  frameW: 128,
+  frameH: 128,
+  fps: 12,
+  loop: true,
+  freezeFrame: 3
+});
+
   // ---------- player ----------
   const player = {
     x: 0, y: 0,
@@ -312,11 +342,11 @@
   //   shizzo -> sammelt Coins (andere koennen sie nicht aufnehmen)
   //   long   -> springt automatisch ueber Loecher
   const CHARACTERS = {
-    lou:    { name: 'Lou',    body: '#ffd95c', dark: '#ff8a3d', sprite: LOU_RUN },
-    sasch:  { name: 'Sasch',  body: '#86efac', dark: '#15803d' },
-    shizzo: { name: 'Shizzo', body: '#fca5a5', dark: '#b91c1c' },
-    long:   { name: 'LonG',   body: '#93c5fd', dark: '#1e40af' }
-  };
+  lou:    { name: 'Lou',    body: '#ffd95c', dark: '#ff8a3d', sprite: LOU_RUN },
+  sasch:  { name: 'Sasch',  body: '#86efac', dark: '#15803d', sprite: SASCH_RUN },
+  shizzo: { name: 'Shizzo', body: '#fca5a5', dark: '#b91c1c', sprite: SHIZZO_RUN },
+  long:   { name: 'LonG',   body: '#93c5fd', dark: '#1e40af', sprite: LONG_RUN }
+};
   let activeCharacter = 'lou';
   const LONG_GAP_LOOKAHEAD = 60; // px, wie weit vor der Luecken-Kante LonG den Sprung triggert
 
