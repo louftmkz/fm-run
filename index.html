@@ -1418,11 +1418,10 @@ const LONG_RUN = new SpriteAnim({
 
     // -------- Sprite-Pfad (nur fuer Helden mit hinterlegtem Sprite, z.B. Lou) --------
     if(useSprite){
-      // Pixel-Perfect: rendere Sprite auf doppelte Source-Aufloesung (256x256 fest).
-      // Bei DPR=2 ergibt das 4x source = exakt ganzzahliger Scale -> knackig.
-      // Bei DPR=1 ergibt das 2x source = ebenfalls integer.
-      const targetH = 256;
-      const targetW = 256; // Frames sind 1:1 (128x128 source)
+      // Sprite-Groesse 1.5x source (128 -> 192). Pixel-Perfect bleibt durch
+      // Nearest-Neighbor + Integer-Snapping in SpriteAnim.draw().
+      const targetH = 192;
+      const targetW = 192;
       const dx = (x + p.w/2) - targetW/2;
       const dy = (y + p.h) - targetH; // Fuesse an der Player-Unterkante ausrichten
       char.sprite.draw(ctx, p.spriteTime, dx, dy, targetW, targetH, p.onGround);
