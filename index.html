@@ -307,6 +307,23 @@ const LONG_RUN = new SpriteAnim({
   freezeFrame: 3
 });
 
+  // ---------- Level-Backgrounds (tileable, 10:1 ratio, native 1277x128) ----------
+  // Slot pro Etage (Index = Level 0..MAX_LEVEL). null = solid color fallback.
+  // Tiles werden zur Etagen-Hoehe skaliert + horizontal mit Scroll-Offset gewrapped.
+  function loadLevelBG(src){
+    const img = new Image();
+    img.src = src;
+    return img;
+  }
+  const LEVEL_BGS = [
+    loadLevelBG('./sprites/level-1.png'), // Level 0 = Ebene 1 (Training Room)
+    null, // Level 1 = Ebene 2
+    null, // Level 2 = Ebene 3
+    null, // Level 3 = Ebene 4
+    null, // Level 4 = Ebene 5
+    null  // Level 5 = Ebene 6 (MAX_LEVEL)
+  ];
+
   // ---------- player ----------
   const player = {
     x: 0, y: 0,
@@ -1183,17 +1200,40 @@ const LONG_RUN = new SpriteAnim({
       '#3a2818', // Level 4 - deep amber
       null       // Level 5 (MAX_LEVEL) - transparent (Sky)
     ];
+    // Scroll-Offset in CSS-Pixeln (basis fuer alle Tile-Backgrounds)
+    const scrollPx = distance * PIXELS_PER_METER;
     for(let lvl = 0; lvl <= MAX_LEVEL; lvl++){
       const color = LEVEL_COLORS[lvl];
-      if(!color) continue;
+      const bg = LEVEL_BGS[lvl];
+      // Slab fuer Solid-Fill (auch hinter Tile, damit Underground-Bereich auf Level 0 gefuellt bleibt)
       const top    = (lvl < MAX_LEVEL) ? levelFloorY(lvl + 1) : -1;
       const bottom = (lvl === 0) ? H : levelFloorY(lvl);
-      if(bottom <= top) continue;
-      const drawTop    = Math.max(top, -1);
-      const drawBottom = Math.min(bottom, H + 1);
-      if(drawBottom <= drawTop) continue;
-      ctx.fillStyle = color;
-      ctx.fillRect(0, drawTop, W, drawBottom - drawTop);
+      if(bottom > top){
+        const drawTop    = Math.max(top, -1);
+        const drawBottom = Math.min(bottom, H + 1);
+        if(drawBottom > drawTop && color){
+          ctx.fillStyle = color;
+          ctx.fillRect(0, drawTop, W, drawBottom - drawTop);
+        }
+      }
+      // Tile-Background: nur in der Etagen-Hoehe (von Decke = naechster Floor bis eigener Floor)
+      if(bg && bg.complete && bg.naturalWidth > 0){
+        const tileTop = (lvl < MAX_LEVEL) ? levelFloorY(lvl + 1) : (levelFloorY(lvl) - H * 0.28);
+        const tileBot = levelFloorY(lvl);
+        const tileScaledH = tileBot - tileTop;
+        if(tileScaledH > 0){
+          const tileScaledW = bg.naturalWidth * (tileScaledH / bg.naturalHeight);
+          const offset = ((scrollPx % tileScaledW) + tileScaledW) % tileScaledW;
+          let x = -offset;
+          const iy = Math.round(tileTop);
+          const ih = Math.ceil(tileScaledH);
+          const iw = Math.ceil(tileScaledW);
+          while(x < W){
+            ctx.drawImage(bg, Math.round(x), iy, iw, ih);
+            x += tileScaledW;
+          }
+        }
+      }
     }
 
     // Etagen-Linien: alle Levels rendern
