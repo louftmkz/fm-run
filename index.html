@@ -30,12 +30,16 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:none}
-  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  /* Mobile-only Layout: auf Desktop wird das Spielfeld auf Phone-Aspect (max 430px) zentriert.
+     Auf Mobile fuellt es weiterhin den ganzen Bildschirm. */
+  body{background:#050714}
+  #wrap{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(0,0,0,0.6)}
   #gamearea{flex:1;position:relative;min-height:0;overflow:hidden}
   canvas{display:block;width:100%;height:100%;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 70%)}
   .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
   .charnav{display:flex;flex:0 0 100px;padding:10px;gap:8px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
-  .charbtn{flex:1;height:80px;border-radius:14px;border:0;background:var(--char-color);color:#0f0c14;font-weight:900;font-size:18px;letter-spacing:.5px;cursor:pointer;opacity:.5;transition:opacity .12s ease,transform .12s ease,box-shadow .12s ease;font-family:inherit;display:flex;align-items:center;justify-content:center}
+  .charbtn{flex:1;height:80px;border-radius:14px;border:0;background:var(--char-color);cursor:pointer;opacity:.5;transition:opacity .12s ease,transform .12s ease,box-shadow .12s ease;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
+  .charbtn img{width:60px;height:60px;image-rendering:pixelated;image-rendering:crisp-edges;display:block;pointer-events:none}
   .charbtn:active{transform:scale(.95)}
   .charbtn.active{opacity:1;transform:scale(1.04);box-shadow:0 0 22px var(--char-color),inset 0 0 0 2px rgba(255,255,255,.85)}
   .top{display:flex;justify-content:space-between;align-items:center;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));font-weight:700;letter-spacing:.5px;gap:12px}
@@ -93,10 +97,10 @@
   </div>
 
   <div class="charnav">
-    <button class="charbtn active" data-char="lou"    style="--char-color:#ffd95c">Lou</button>
-    <button class="charbtn"        data-char="sasch"  style="--char-color:#86efac">Sasch</button>
-    <button class="charbtn"        data-char="shizzo" style="--char-color:#fca5a5">Shizzo</button>
-    <button class="charbtn"        data-char="long"   style="--char-color:#93c5fd">LonG</button>
+    <button class="charbtn active" data-char="lou"    style="--char-color:#ffd95c" aria-label="Lou"><img src="./sprites/button-lou.png" alt="Lou"></button>
+    <button class="charbtn"        data-char="sasch"  style="--char-color:#86efac" aria-label="Sasch"><img src="./sprites/button-sasch.png" alt="Sasch"></button>
+    <button class="charbtn"        data-char="shizzo" style="--char-color:#fca5a5" aria-label="Shizzo"><img src="./sprites/button-shizzo.png" alt="Shizzo"></button>
+    <button class="charbtn"        data-char="long"   style="--char-color:#93c5fd" aria-label="LonG"><img src="./sprites/button-long.png" alt="LonG"></button>
   </div>
 </div>
 
@@ -520,10 +524,11 @@ const LONG_RUN = new SpriteAnim({
     if(!player.onGround) return;
     const targetX = gap.x + gap.w + LONG_LAND_MARGIN;
     const required = (targetX - player.x) / speed;
-    // Force-Gap: kurzer Hop statt voller Bogen -> LonG kommt nicht ueber, faellt rein.
-    // Bei normalen Loechern weiterhin adaptive Air-Time fuer sicheres Landen.
+    // Force-Gap: fest 0.8s Air-Time (sieht aus wie normaler Sprung) -- nicht lang genug
+    // fuer 350px-Loecher -> LonG landet im Loch und faellt durch. Normale Loecher nutzen
+    // weiterhin adaptive Air-Time fuer sicheres Landen.
     const tAir = gap.forced
-      ? LONG_MIN_AIR_TIME
+      ? 0.8
       : Math.max(LONG_MIN_AIR_TIME, required);
     const g    = 8 * LONG_JUMP_HEIGHT / (tAir * tAir);
     const vy   = -Math.sqrt(2 * g * LONG_JUMP_HEIGHT);
