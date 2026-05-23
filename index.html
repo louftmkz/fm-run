@@ -208,7 +208,7 @@
   let currentLevel = 2;         // aktuelle Etage des Spielers (Start = Code Level 2 = Ebene 1 Training Room)
   let levelEnterDistance = 0;   // Distanz-Marke beim Betreten der aktuellen Ebene
   let forceFallScheduled = false; // pro Visit: 1x Force-Fall (Gap/Ramp) bei 350m
-  const FORCE_FALL_DISTANCE = 350; // Meter auf einer Ebene bis Force-Fall ausgeloest wird
+  const FORCE_FALL_DISTANCE = 200; // Meter auf einer Ebene bis Force-Fall ausgeloest wird
   let slideProgress = 0;        // [-1..0..1] waehrend SLIDING/FALLING
   let activeRamp = null;        // Referenz auf die gerade befahrene Schraege (fuer geometrische Slide-Bindung)
   function levelGap(){ return H * 0.28; }
@@ -509,7 +509,7 @@ const LONG_RUN = new SpriteAnim({
   // Tap / Space / Up startet/restart das Spiel im Menu/GameOver-Screen.
 
   // Sprunghoehe und Mindest-Air-Time fuer LonGs Auto-Jump
-  const LONG_JUMP_HEIGHT  = 130; // px (sichtbare Sprunghoehe, konstant)
+  const LONG_JUMP_HEIGHT  = 90;  // px (sichtbare Sprunghoehe, konstant -- niedrig genug damit Kopf nicht in obere Ebene ragt)
   const LONG_LAND_MARGIN  = 30;  // px hinter dem Loch zum Landen
   const LONG_MIN_AIR_TIME = 0.45;// kurze Loecher kriegen trotzdem einen sichtbaren Hop
 
@@ -520,11 +520,15 @@ const LONG_RUN = new SpriteAnim({
     if(!player.onGround) return;
     const targetX = gap.x + gap.w + LONG_LAND_MARGIN;
     const required = (targetX - player.x) / speed;
-    const tAir = Math.max(LONG_MIN_AIR_TIME, required);
+    // Force-Gap: kurzer Hop statt voller Bogen -> LonG kommt nicht ueber, faellt rein.
+    // Bei normalen Loechern weiterhin adaptive Air-Time fuer sicheres Landen.
+    const tAir = gap.forced
+      ? LONG_MIN_AIR_TIME
+      : Math.max(LONG_MIN_AIR_TIME, required);
     const g    = 8 * LONG_JUMP_HEIGHT / (tAir * tAir);
     const vy   = -Math.sqrt(2 * g * LONG_JUMP_HEIGHT);
     player.vy = vy;
-    player.customGravity = g; // Override fuer die Dauer dieses Sprungs
+    player.customGravity = g;
     player.onGround = false;
     player.jumpsUsed = 1;
     puff(player.x + player.w/2, player.y + player.h, 6);
@@ -1119,10 +1123,31 @@ const LONG_RUN = new SpriteAnim({
     if(player.onGround){
       if(activeCharacter === 'long'){
         const pRight = player.x + player.w;
+        const pcx = player.x + player.w/2;
         for(const g of gaps){
           if(g.level !== currentLevel) continue;
-          if(g.forced) continue; // Force-Gap: LonG kann nicht ueberspringen
-          // Sprung triggern, sobald Player-Rechtskante in Reichweite kommt
+          if(g.forced){
+            // Force-Gap: erster Kontakt -> kurzer Hop, danach Fall einleiten
+            if(g.longTried){
+              // bereits versucht zu springen, nun fallen wenn Mitte ueber Loch
+              if(pcx >= g.x && pcx <= g.x + g.w){
+                state = STATE.FALLING;
+                slideProgress = 0;
+                player.onGround = false;
+                player.vy = 60;
+                puff(player.x + player.w/2, player.y + player.h, 5);
+                break;
+              }
+              continue;
+            }
+            if(pRight + LONG_GAP_LOOKAHEAD >= g.x && pRight <= g.x + g.w){
+              g.longTried = true;
+              triggerLongJump(g);
+              break;
+            }
+            continue;
+          }
+          // Normales Loch: Sprung triggern, sobald Rechtskante in Reichweite
           if(pRight + LONG_GAP_LOOKAHEAD >= g.x && pRight <= g.x + g.w){
             triggerLongJump(g);
             break;
