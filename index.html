@@ -206,13 +206,16 @@
   const SLIDE_DURATION = 0.45;  // Sekunden pro Treppen-Aufstieg
   const FALL_DURATION  = 0.30;  // Sekunden pro Etagen-Sturz (Level > 0)
   let currentLevel = 2;         // aktuelle Etage des Spielers (Start = Code Level 2 = Ebene 1 Training Room)
+  let levelEnterDistance = 0;   // Distanz-Marke beim Betreten der aktuellen Ebene
+  let forceFallScheduled = false; // pro Visit: 1x Force-Fall (Gap/Ramp) bei 350m
+  const FORCE_FALL_DISTANCE = 350; // Meter auf einer Ebene bis Force-Fall ausgeloest wird
   let slideProgress = 0;        // [-1..0..1] waehrend SLIDING/FALLING
   let activeRamp = null;        // Referenz auf die gerade befahrene Schraege (fuer geometrische Slide-Bindung)
   function levelGap(){ return H * 0.28; }
   function levelFloorY(k){
     // Bildschirm-Y der Etagen-Oberflaeche von Level k.
-    // currentLevel sitzt immer auf H*0.82; waehrend SLIDING shifted die Welt nach unten.
-    return H * 0.82 + slideProgress * levelGap() - (k - currentLevel) * levelGap();
+    // currentLevel sitzt immer auf H*0.65; waehrend SLIDING shifted die Welt nach unten.
+    return H * 0.65 + slideProgress * levelGap() - (k - currentLevel) * levelGap();
   }
 
   let best = 0;
@@ -225,7 +228,11 @@
   // bis der Spieler die Etage verlassen + wieder erreicht hat.
   const MAX_LIVES = 3;
   let lives = 0;                      // Spieler startet ohne Lives, sammelt sie durch 1ups
-  let oneUpEligible = false;          // pro Visit auf MAX_LEVEL: 1x ein 1up-Pattern moeglich
+  // 1up-Logik v2: alle 1000m garantiert, abhaengig von der Ebene auf der man sich befindet.
+  //   Spaceship (Code Level 7) -> ramp_oneup (Boost-Rampe Pattern)
+  //   Ebenen 2-5 (Code Level 3-6) -> gap_air_oneup (1up ueber Loch, LonG-Apex)
+  //   Underground/Gutter/Training (Code Level 0-2) -> kein 1up auf dieser Ebene, warten bis Aufstieg
+  let nextOneUpAtDistance = 1000;
   let invincibleUntil = 0;            // Game-Time-Stempel: bis wann der Spieler unverwundbar ist (nach Life-Loss)
   function updateLivesDisplay(){
     const hearts = document.querySelectorAll('#lives .heart');
@@ -316,6 +323,36 @@ const LONG_RUN = new SpriteAnim({
     img.src = src;
     return img;
   }
+  // Pro Ebene optionale Sprite-Pfade fuer Coins und Hindernisse.
+  // null = procedural Fallback (goldener Kreis fuer Coin, gradient Rect fuer Obstacle).
+  // Sobald hier ein Pfad gesetzt wird, laed das Spiel beim Boot das Bild und nutzt es
+  // auf der entsprechenden Ebene statt der prozeduralen Form. Bilder werden lazy geladen.
+  // Index = Code Level 0..7 (= Ebene -1, 0, 1, 2, 3, 4, 5, 6)
+  const LEVEL_COIN_SPRITES = [
+    null, // Code Level 0 = Ebene -1 (Underground)
+    null, // Code Level 1 = Ebene  0 (Gutter)
+    null, // Code Level 2 = Ebene  1 (Training Room)
+    null, // Code Level 3 = Ebene  2 (Night Club)
+    null, // Code Level 4 = Ebene  3 (Battle Ground)
+    null, // Code Level 5 = Ebene  4 (TV Studio)
+    null, // Code Level 6 = Ebene  5 (Theater Stage)
+    null  // Code Level 7 = Ebene  6 (Spaceship)
+  ];
+  const LEVEL_OBSTACLE_SPRITES = [
+    null, null, null, null, null, null, null, null
+  ];
+  function getLevelSpriteImage(arr, lvl){
+    const entry = arr[lvl];
+    if(!entry) return null;
+    if(typeof entry === 'string'){
+      const img = new Image();
+      img.src = entry;
+      arr[lvl] = img; // ersetze String mit Image-Instanz (in-place lazy load)
+      return img;
+    }
+    return entry; // schon Image-Instanz
+  }
+
   const LEVEL_BGS = [
     loadLevelBG('./sprites/level-minus-1.png'), // Code Level 0 = Ebene -1 (Underground)
     loadLevelBG('./sprites/level-0.png'),       // Code Level 1 = Ebene  0 (Gutter & Ghetto)
@@ -344,7 +381,7 @@ const LONG_RUN = new SpriteAnim({
   const DOUBLE_JUMP_VEL = -740;
 
   // ---------- world ----------
-  const groundHeightFrac = 0.18; // ground takes bottom 18% of screen
+  const groundHeightFrac = 0.35; // 35% des Screens unter dem Player -> Sicht auf naechste Etage darunter
   function groundY(){ return H - H * groundHeightFrac; }
 
   const obstacles = [];     // {x,w,h,type,level} - y wird ueber levelFloorY(level) berechnet
@@ -419,13 +456,16 @@ const LONG_RUN = new SpriteAnim({
     // coinsTotal NICHT zuruecksetzen -- bleibt rundenuebergreifend erhalten
     // Lives + Eligibility per Run zuruecksetzen
     lives = 0;
-    oneUpEligible = false;
+    // (nextOneUpAtDistance wird oben gesetzt)
     invincibleUntil = 0;
     updateLivesDisplay();
     timeAlive = 0;
     distance = 0;
     speed = SPEEDS[0];
     currentLevel = 2; // Start auf Ebene 1 (Training Room) = Code Level 2
+    levelEnterDistance = 0;
+    forceFallScheduled = false;
+    nextOneUpAtDistance = 1000;
     slideProgress = 0;
     activeRamp = null;
     player.x = Math.max(45, W * 0.10);
@@ -715,6 +755,11 @@ const LONG_RUN = new SpriteAnim({
     ramp_oneup: [
       { type: 'ramp',  dx:  0, w: 130 },
       { type: 'oneup', dx: 80,         dy: 228 }
+    ],
+    // gap_air_oneup: Loch + 1up in der Luft (LonG-Sprung-Apex). Nur via Force-Spawn auf Ebene 2-5.
+    gap_air_oneup: [
+      { type: 'gap',   dx:   0, w: 100 },
+      { type: 'oneup', dx: -50,         dy: 158 }
     ]
   };
 
@@ -734,13 +779,30 @@ const LONG_RUN = new SpriteAnim({
     // gap_aircoin: Loch mit Coin in der Luft daruber (nur via LonG-Apex erreichbar).
     // Belohnt mid-air Switch von LonG zu Shizzo. Auf allen Ebenen, sanfter auf Ebene 1.
     gap_aircoin:           [35, 35, 15, 35, 35, 35, 35, 35],
+    // gap_air_oneup: wie gap_aircoin aber mit 1up statt Coin. NICHT random spawnen --
+    // wird ausschliesslich von 1up-Force-Spawn (alle 1000m) auf Ebene 2-5 ausgeloest.
+    gap_air_oneup:         [ 0,  0,  0,  0,  0,  0,  0,  0],
     // ----- Ebene-6-exklusive Rampen-Varianten mit 40/30/20/10 Verteilung -----
     // Total ~200 events/100m = ~1 Rampe alle 5s @ Top-Speed. Deutlich mehr Action.
     top_ramp_alone:        [ 0,  0,  0,  0,  0,  0,  0, 80], // 40% -- Rampe ohne Reward
     top_ramp_coin:         [ 0,  0,  0,  0,  0,  0,  0, 60], // 30% -- Rampe + 1 Coin
     top_arc_coins:         [ 0,  0,  0,  0,  0,  0,  0, 40], // 20% -- Rampe + 3 Coins
-    ramp_oneup:            [ 0,  0,  0,  0,  0,  0,  0, 20]  // 10% -- Rampe + 1up (eligibility-gated)
+    ramp_oneup:            [ 0,  0,  0,  0,  0,  0,  0,  0]  // nicht random -- force-spawn alle 1000m auf Spaceship
   };
+
+  function spawnForceFall(lvl){
+    // Bei 350m auf einer Ebene: erzwinge Fall zur Ebene darunter.
+    // Underground (Level 0): mandatory Lou-Rampe + danach Force-Gap (Game Over wenn kein Lou).
+    // Sonstige Ebenen: einfach Force-Gap (zu breit fuer LonG-Sprung).
+    const FORCE_GAP_W = 350;
+    if(lvl === 0){
+      // Lou-Test auf Underground
+      ramps.push({ x: W + 20, w: 130, level: 0, forced: true });
+      gaps.push({ x: W + 20 + 130 + 100, w: FORCE_GAP_W, level: 0, forced: true });
+    } else {
+      gaps.push({ x: W + 20, w: FORCE_GAP_W, level: lvl, forced: true });
+    }
+  }
 
   function spawnPattern(name, lvl){
     const pattern = PATTERNS[name];
@@ -822,7 +884,7 @@ const LONG_RUN = new SpriteAnim({
       const r = PATTERN_RATES[pname][lvl];
       if(r <= 0) continue;
       // ramp_oneup auf Ebene 6 nur wenn Eligibility frei (1x pro Visit)
-      if(pname === 'ramp_oneup' && !oneUpEligible) continue;
+      // 1up-Patterns nicht mehr per Eligibility -- sie werden ueber Force-Spawn (alle 1000m) ausgeloest
       if(Math.random() < (r / 10000) * distanceMeters) candidates.push({kind:'pattern', name:pname});
     }
     if(candidates.length === 0) return;
@@ -846,7 +908,7 @@ const LONG_RUN = new SpriteAnim({
     if(chosen.kind === 'pattern'){
       spawnPattern(chosen.name, lvl);
       // 1up-Pattern verbraucht die Eligibility -- erst bei naechstem MAX_LEVEL-Eintritt wieder frei
-      if(chosen.name === 'ramp_oneup') oneUpEligible = false;
+      // (kein eligibility-update mehr)
     } else {
       const fns = { coin: spawnCoin, obstacle: spawnObstacle, gap: spawnGap, ramp: spawnRamp };
       fns[chosen.name](lvl);
@@ -886,6 +948,24 @@ const LONG_RUN = new SpriteAnim({
 
     // Spawns pro Typ basierend auf Etagen-Raten (Poisson-artig)
     tickSpawns(distanceThisFrameM);
+
+    // 1up-Force-Spawn alle 1000m -- levelabhaengig
+    if(distance >= nextOneUpAtDistance && state === STATE.PLAYING){
+      if(currentLevel === MAX_LEVEL){
+        spawnPattern('ramp_oneup', currentLevel);
+        nextOneUpAtDistance += 1000;
+      } else if(currentLevel >= 3 && currentLevel <= MAX_LEVEL - 1){
+        spawnPattern('gap_air_oneup', currentLevel);
+        nextOneUpAtDistance += 1000;
+      }
+      // sonst: warten bis Player auf einer eligible Ebene ist
+    }
+
+    // Force-Fall bei 350m auf der aktuellen Ebene (verhindert "Kaffeefahrt" auf einer Ebene)
+    if(!forceFallScheduled && (distance - levelEnterDistance) >= FORCE_FALL_DISTANCE && state === STATE.PLAYING){
+      spawnForceFall(currentLevel);
+      forceFallScheduled = true;
+    }
 
     // Sidescroll: Hindernisse, Treppen, Luecken bewegen sich kontinuierlich
     for(let i=obstacles.length-1;i>=0;i--){
@@ -958,10 +1038,9 @@ const LONG_RUN = new SpriteAnim({
           // ausgenutzte Ramp freigeben + naechsten Frame normal despawnen lassen
           activeRamp = null;
           puff(player.x + player.w/2, player.y + player.h, 10);
-          // Beim Eintritt auf Ebene 6: 1up-Eligibility freischalten (frische Visit)
-          if(currentLevel === MAX_LEVEL){
-            oneUpEligible = true;
-          }
+          // Neue Ebene betreten: Force-Fall-Counter resetten
+          levelEnterDistance = distance;
+          forceFallScheduled = false;
         }
       } else {
         // Sicherheits-Fallback (sollte nicht passieren)
@@ -981,6 +1060,9 @@ const LONG_RUN = new SpriteAnim({
           currentLevel--;
           state = STATE.PLAYING;
           puff(player.x + player.w/2, player.y + player.h, 8);
+          // Neue Ebene betreten: Force-Fall-Counter resetten
+          levelEnterDistance = distance;
+          forceFallScheduled = false;
         }
         tickScrollingWorld(dt);
       } else {
@@ -1039,6 +1121,7 @@ const LONG_RUN = new SpriteAnim({
         const pRight = player.x + player.w;
         for(const g of gaps){
           if(g.level !== currentLevel) continue;
+          if(g.forced) continue; // Force-Gap: LonG kann nicht ueberspringen
           // Sprung triggern, sobald Player-Rechtskante in Reichweite kommt
           if(pRight + LONG_GAP_LOOKAHEAD >= g.x && pRight <= g.x + g.w){
             triggerLongJump(g);
@@ -1189,7 +1272,7 @@ const LONG_RUN = new SpriteAnim({
     }
 
     // Spieler-Bildschirm-Position (konstant -- fuer Etagen-Linien-Vergleich + Gap-Cut)
-    const playerFloorScreenY = H * 0.82;
+    const playerFloorScreenY = H * 0.65;
 
     // Pro Etage ein eigener Solid-Hintergrund, sodass die Ebenen optisch unterscheidbar sind.
     // Jeder Streifen reicht von der Decke (= Boden der naechsthoeheren Ebene) bis zum eigenen Boden.
@@ -1305,17 +1388,23 @@ const LONG_RUN = new SpriteAnim({
       ctx.stroke();
     }
 
-    // Hindernisse -- y aus level abgeleitet, sodass sie mit der Welt mitfahren
+    // Hindernisse -- y aus level abgeleitet, sodass sie mit der Welt mitfahren.
+    // Pro Ebene optional ein Sprite (LEVEL_OBSTACLE_SPRITES); sonst procedural pink-gradient.
     for(const o of obstacles){
       const oy = levelFloorY(o.level) - o.h;
       if(oy < -200 || oy > H + 200) continue;
-      const grd = ctx.createLinearGradient(o.x, oy, o.x, oy + o.h);
-      grd.addColorStop(0,'#ff4d8d');
-      grd.addColorStop(1,'#7a1240');
-      ctx.fillStyle = grd;
-      roundRect(ctx, o.x, oy, o.w, o.h, 4, true, false);
-      ctx.fillStyle = 'rgba(255,255,255,0.25)';
-      ctx.fillRect(o.x+3, oy+3, o.w-6, 3);
+      const sprite = getLevelSpriteImage(LEVEL_OBSTACLE_SPRITES, o.level);
+      if(sprite && sprite.complete && sprite.naturalWidth > 0){
+        ctx.drawImage(sprite, Math.round(o.x), Math.round(oy), Math.ceil(o.w), Math.ceil(o.h));
+      } else {
+        const grd = ctx.createLinearGradient(o.x, oy, o.x, oy + o.h);
+        grd.addColorStop(0,'#ff4d8d');
+        grd.addColorStop(1,'#7a1240');
+        ctx.fillStyle = grd;
+        roundRect(ctx, o.x, oy, o.w, o.h, 4, true, false);
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.fillRect(o.x+3, oy+3, o.w-6, 3);
+      }
     }
 
     // 1ups -- pinker Pulskreis mit "1UP" innen, schwebt hoch in der Luft (Default 50px ueber Boden,
@@ -1351,19 +1440,24 @@ const LONG_RUN = new SpriteAnim({
     // Werden auf allen Etagen gerendert (Lebendigkeit), interagieren aber nur mit dem Spieler
     // wenn er auf der gleichen Etage UND als Shizzo unterwegs ist.
     const coinPulse = Math.sin(timeAlive * 6);
+    const coinSize = COIN_RADIUS * 2; // fuer Sprite-Render (Bounding-Box)
     for(const c of coins){
       const yOff = c.yOffset != null ? c.yOffset : COIN_Y_OFFSET;
       const cy = levelFloorY(c.level) - yOff + coinPulse * 1.5;
       if(cy < -30 || cy > H + 30) continue;
-      // Aussenring (dunkler)
-      ctx.fillStyle = '#cc8a00';
-      ctx.beginPath(); ctx.arc(c.x, cy, COIN_RADIUS, 0, Math.PI*2); ctx.fill();
-      // Innenfuellung
-      ctx.fillStyle = '#ffcc33';
-      ctx.beginPath(); ctx.arc(c.x, cy, COIN_RADIUS - 2, 0, Math.PI*2); ctx.fill();
-      // Highlight oben links
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.beginPath(); ctx.arc(c.x - 3, cy - 3, COIN_RADIUS * 0.35, 0, Math.PI*2); ctx.fill();
+      const sprite = getLevelSpriteImage(LEVEL_COIN_SPRITES, c.level);
+      if(sprite && sprite.complete && sprite.naturalWidth > 0){
+        // Sprite zentriert auf coin position
+        ctx.drawImage(sprite, Math.round(c.x - COIN_RADIUS), Math.round(cy - COIN_RADIUS), coinSize, coinSize);
+      } else {
+        // Procedural: Goldkreis mit Highlight
+        ctx.fillStyle = '#cc8a00';
+        ctx.beginPath(); ctx.arc(c.x, cy, COIN_RADIUS, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ffcc33';
+        ctx.beginPath(); ctx.arc(c.x, cy, COIN_RADIUS - 2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath(); ctx.arc(c.x - 3, cy - 3, COIN_RADIUS * 0.35, 0, Math.PI*2); ctx.fill();
+      }
     }
 
     // player
