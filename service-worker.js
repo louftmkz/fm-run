@@ -2,7 +2,7 @@
 // Strategy: cache-first für statische Assets, network-first für HTML (damit Updates beim
 // neuen Deploy schnell durchkommen).
 
-const CACHE_NAME = 'fm-run-v7';
+const CACHE_NAME = 'fm-run-v8';
 const PRECACHE = [
   './',
   './index.html',
@@ -27,10 +27,6 @@ const PRECACHE = [
   './sprites/button-sasch.png',
   './sprites/button-shizzo.png',
   './sprites/button-long.png',
-  './sprites/name-lou.png',
-  './sprites/name-sasch.png',
-  './sprites/name-shizzo.png',
-  './sprites/name-long.png',
   './sprites/icon-lou.png',
   './sprites/icon-sasch.png',
   './sprites/icon-shizzo.png',
