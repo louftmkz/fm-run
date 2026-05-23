@@ -651,7 +651,13 @@ const LONG_RUN = new SpriteAnim({
   }
   function spawnGap(lvl){
     const w = 80 + Math.random()*50;
-    gaps.push({x: W + 20, w, level: lvl});
+    const x = W + 20;
+    gaps.push({x, w, level: lvl});
+    // 20% Chance: Coin schwebt mittig ueber dem Loch -> belohnt mid-air-Switch
+    // LonG (springt) -> Shizzo (sammelt). Coin auf Hoehe des Sprung-Apex.
+    if(Math.random() < 0.20){
+      coins.push({ x: x + w/2, level: lvl, yOffset: 110 });
+    }
   }
   function spawnRamp(lvl){
     const w = 110 + Math.random()*40;
@@ -742,7 +748,7 @@ const LONG_RUN = new SpriteAnim({
     // Coin schwebt mittig ueber dem Loch, auf Hoehe des LonG-Sprung-Apex.
     gap_aircoin: [
       { type: 'gap',  dx:   0, w: 100 },
-      { type: 'coin', dx: -50,         dy: 158 }
+      { type: 'coin', dx: -50,         dy: 110 }
     ],
     // ----- Ebene 6: Top-Level Rampen-Varianten -----
     // Auf MAX_LEVEL ist die Rampe ein Boost-Pad (Arc-Jump statt Slide).
@@ -768,7 +774,7 @@ const LONG_RUN = new SpriteAnim({
     // gap_air_oneup: Loch + 1up in der Luft (LonG-Sprung-Apex). Nur via Force-Spawn auf Ebene 2-5.
     gap_air_oneup: [
       { type: 'gap',   dx:   0, w: 100 },
-      { type: 'oneup', dx: -50,         dy: 158 }
+      { type: 'oneup', dx: -50,         dy: 110 }
     ]
   };
 
