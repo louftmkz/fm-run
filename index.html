@@ -106,6 +106,8 @@
   const canvas = document.getElementById('game');
   const gamearea = document.getElementById('gamearea');
   const ctx = canvas.getContext('2d');
+  // Pixel-Perfect: keine bilineare Interpolation beim drawImage -> Sprites bleiben knackig
+  ctx.imageSmoothingEnabled = false;
   let DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
   let W = 0, H = 0;       // CSS pixels (Game-Area, ohne Bottom-Nav)
   function resize(){
@@ -118,6 +120,8 @@
     canvas.style.width = W + 'px';
     canvas.style.height = H + 'px';
     ctx.setTransform(DPR,0,0,DPR,0,0);
+    // Smoothing-Flag nach Context-Reset erneut setzen (manche Browser resetten es)
+    ctx.imageSmoothingEnabled = false;
     // Layout-Shift-Schutz (iOS Safari Adressleiste etc.): Player snappt auf neuen Boden,
     // damit er bei verkleinertem Viewport nicht unter der gelben Linie stehenbleibt.
     try {
@@ -254,7 +258,11 @@
     draw(ctx, time, dx, dy, dw, dh, active=true){
       if(!this.ready) return false;
       const idx = this.frameAt(time, active);
-      ctx.drawImage(this.img, idx*this.frameW, 0, this.frameW, this.frameH, dx, dy, dw, dh);
+      // Pixel-Perfect: Destination-Koordinaten + -Groesse auf Integer snappen,
+      // damit der Sprite nicht zwischen zwei Display-Pixeln rendert (Unschaerfe).
+      const ix = Math.round(dx), iy = Math.round(dy);
+      const iw = Math.round(dw), ih = Math.round(dh);
+      ctx.drawImage(this.img, idx*this.frameW, 0, this.frameW, this.frameH, ix, iy, iw, ih);
       return true;
     }
   }
