@@ -38,8 +38,11 @@
   canvas{display:block;width:100%;height:100%;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 70%)}
   .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
   .charnav{display:flex;flex:0 0 100px;padding:10px;gap:8px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
-  .charbtn{flex:1;height:80px;border-radius:14px;border:0;background:var(--char-color);cursor:pointer;opacity:.5;transition:opacity .12s ease,transform .12s ease,box-shadow .12s ease;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
-  .charbtn img{width:60px;height:60px;image-rendering:pixelated;image-rendering:crisp-edges;display:block;pointer-events:none}
+  .charbtn{flex:1;height:80px;border-radius:14px;border:0;background:var(--char-color);cursor:pointer;opacity:.5;transition:opacity .12s ease,transform .12s ease,box-shadow .12s ease;display:block;position:relative;padding:0;overflow:hidden}
+  .charbtn img{image-rendering:pixelated;image-rendering:crisp-edges;display:block;pointer-events:none;position:absolute}
+  .charbtn .face{width:50px;height:50px;top:2px;left:50%;transform:translateX(-50%)}
+  .charbtn .name{width:48px;height:16px;bottom:4px;left:4px}
+  .charbtn .icon{width:16px;height:16px;bottom:4px;right:4px}
   .charbtn:active{transform:scale(.95)}
   .charbtn.active{opacity:1;transform:scale(1.04);box-shadow:0 0 22px var(--char-color),inset 0 0 0 2px rgba(255,255,255,.85)}
   .top{display:flex;justify-content:space-between;align-items:center;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));font-weight:700;letter-spacing:.5px;gap:12px}
@@ -97,10 +100,26 @@
   </div>
 
   <div class="charnav">
-    <button class="charbtn active" data-char="lou"    style="--char-color:#ffd95c" aria-label="Lou"><img src="./sprites/button-lou.png" alt="Lou"></button>
-    <button class="charbtn"        data-char="sasch"  style="--char-color:#86efac" aria-label="Sasch"><img src="./sprites/button-sasch.png" alt="Sasch"></button>
-    <button class="charbtn"        data-char="shizzo" style="--char-color:#fca5a5" aria-label="Shizzo"><img src="./sprites/button-shizzo.png" alt="Shizzo"></button>
-    <button class="charbtn"        data-char="long"   style="--char-color:#93c5fd" aria-label="LonG"><img src="./sprites/button-long.png" alt="LonG"></button>
+    <button class="charbtn active" data-char="lou"    style="--char-color:#ffd95c" aria-label="Lou">
+      <img class="face" src="./sprites/button-lou.png"    alt="">
+      <img class="name" src="./sprites/name-lou.png"      alt="Lou">
+      <img class="icon" src="./sprites/icon-lou.png"      alt="">
+    </button>
+    <button class="charbtn"        data-char="sasch"  style="--char-color:#86efac" aria-label="Sasch">
+      <img class="face" src="./sprites/button-sasch.png"  alt="">
+      <img class="name" src="./sprites/name-sasch.png"    alt="Sasch">
+      <img class="icon" src="./sprites/icon-sasch.png"    alt="">
+    </button>
+    <button class="charbtn"        data-char="shizzo" style="--char-color:#fca5a5" aria-label="Shizzo">
+      <img class="face" src="./sprites/button-shizzo.png" alt="">
+      <img class="name" src="./sprites/name-shizzo.png"   alt="Shizzo">
+      <img class="icon" src="./sprites/icon-shizzo.png"   alt="">
+    </button>
+    <button class="charbtn"        data-char="long"   style="--char-color:#93c5fd" aria-label="LonG">
+      <img class="face" src="./sprites/button-long.png"   alt="">
+      <img class="name" src="./sprites/name-long.png"     alt="LonG">
+      <img class="icon" src="./sprites/icon-long.png"     alt="">
+    </button>
   </div>
 </div>
 
