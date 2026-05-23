@@ -145,7 +145,7 @@
   let speed = 0;             // px/sec horizontal world speed
   // Speed pro Etage (Index = Level 0..MAX_LEVEL)
   // Hoehere Etage = schnellere Welt -> mehr Risk/Reward
-  const SPEEDS = [180, 195, 210, 235, 260, 300];
+  const SPEEDS = [260, 235, 180, 195, 210, 235, 260, 300]; // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
   const SPEED_LERP = 3;      // 1/SPEED_LERP = ~Sekunden bis neue Etagen-Speed erreicht
   const PIXELS_PER_METER = 30;
 
@@ -153,11 +153,12 @@
   // Levels 1-4 nutzen identische Werte (= Level 4 als Baseline = "vorletzte Ebene"-Feel).
   // Level 0 (Ebene 1) bleibt sanfter fuer Einstieg, Level 5 (Ebene 6) hat eigenes Pattern.
   // Schwierigkeitsgrad ueber Geschwindigkeit, nicht ueber Spawn-Dichte.
+  // Code Level 0..7 = Ebene -1, 0, 1 (Start), 2, 3, 4, 5, 6
   const SPAWN_RATES = {
-    coin:     [ 80,  45,  45,  45,  45,   80],
-    obstacle: [150, 350, 350, 350, 350,  500],
-    gap:      [150, 350, 350, 350, 350,  500],
-    ramp:     [140,  45,  45,  45,  45,    0]
+    coin:     [ 45,  45,  80,  45,  45,  45,  45,   80],
+    obstacle: [350, 350, 150, 350, 350, 350, 350,  500],
+    gap:      [350, 350, 150, 350, 350, 350, 350,  500],
+    ramp:     [ 45,  45, 140,  45,  45,  45,  45,    0]
   };
 
   // Combo-spezifischer Mindest-Abstand zwischen aufeinanderfolgenden Spawns auf gleicher Etage.
@@ -201,10 +202,10 @@
   }
 
   // Etagen / Treppen-System
-  const MAX_LEVEL = 5;          // Boden (0) + 5 Etagen darueber
+  const MAX_LEVEL = 7;          // 2 Underground (Code 0,1) + Start (Code 2 = Ebene 1) + 5 Etagen darueber
   const SLIDE_DURATION = 0.45;  // Sekunden pro Treppen-Aufstieg
   const FALL_DURATION  = 0.30;  // Sekunden pro Etagen-Sturz (Level > 0)
-  let currentLevel = 0;         // aktuelle Etage des Spielers
+  let currentLevel = 2;         // aktuelle Etage des Spielers (Start = Code Level 2 = Ebene 1 Training Room)
   let slideProgress = 0;        // [-1..0..1] waehrend SLIDING/FALLING
   let activeRamp = null;        // Referenz auf die gerade befahrene Schraege (fuer geometrische Slide-Bindung)
   function levelGap(){ return H * 0.28; }
@@ -316,12 +317,14 @@ const LONG_RUN = new SpriteAnim({
     return img;
   }
   const LEVEL_BGS = [
-    loadLevelBG('./sprites/level-1.png'), // Level 0 = Ebene 1 (Training Room)
-    loadLevelBG('./sprites/level-2.png'), // Level 1 = Ebene 2 (Night Club)
-    loadLevelBG('./sprites/level-3.png'), // Level 2 = Ebene 3 (Battle Ground)
-    loadLevelBG('./sprites/level-4.png'), // Level 3 = Ebene 4 (TV Studio)
-    loadLevelBG('./sprites/level-5.png'), // Level 4 = Ebene 5 (Theater Stage)
-    loadLevelBG('./sprites/level-6.png')  // Level 5 = Ebene 6 (Spaceship / MAX_LEVEL)
+    loadLevelBG('./sprites/level-minus-1.png'), // Code Level 0 = Ebene -1 (Underground)
+    loadLevelBG('./sprites/level-0.png'),       // Code Level 1 = Ebene  0 (Gutter & Ghetto)
+    loadLevelBG('./sprites/level-1.png'),       // Code Level 2 = Ebene  1 (Training Room) -- START
+    loadLevelBG('./sprites/level-2.png'),       // Code Level 3 = Ebene  2 (Night Club)
+    loadLevelBG('./sprites/level-3.png'),       // Code Level 4 = Ebene  3 (Battle Ground)
+    loadLevelBG('./sprites/level-4.png'),       // Code Level 5 = Ebene  4 (TV Studio)
+    loadLevelBG('./sprites/level-5.png'),       // Code Level 6 = Ebene  5 (Theater Stage)
+    loadLevelBG('./sprites/level-6.png')        // Code Level 7 = Ebene  6 (Spaceship / MAX_LEVEL)
   ];
 
   // ---------- player ----------
@@ -353,7 +356,7 @@ const LONG_RUN = new SpriteAnim({
 
   // Coin-Werte pro Etage (Index = Level 0..MAX_LEVEL)
   // Entspricht User-Logik 1-indexed: Ebene 1=1, Ebene 2=10, ..., Ebene 6=keine Coins
-  const COIN_VALUES = [1, 10, 25, 50, 100, 0];
+  const COIN_VALUES = [100, 50, 1, 10, 25, 50, 100, 0]; // Code Level 0..7
   const COIN_RADIUS = 11;
   const COIN_Y_OFFSET = 30; // Hoehe ueber dem Boden -- auf Spielermitte
   let coinsTotal = 0;
@@ -422,7 +425,7 @@ const LONG_RUN = new SpriteAnim({
     timeAlive = 0;
     distance = 0;
     speed = SPEEDS[0];
-    currentLevel = 0;
+    currentLevel = 2; // Start auf Ebene 1 (Training Room) = Code Level 2
     slideProgress = 0;
     activeRamp = null;
     player.x = Math.max(45, W * 0.10);
@@ -718,25 +721,25 @@ const LONG_RUN = new SpriteAnim({
   // Pattern-Spawnrate pro Etage (Events pro 100m).
   // Levels 1-4 nutzen identische Werte (= Level 4 Baseline). Level 0 sanfter, Level 5 speziell.
   const PATTERN_RATES = {
-    coin_sandwich:         [16, 28, 28, 28, 28,  0],
-    gap_ramp:              [13, 24, 24, 24, 24,  0],
-    obstacle_ramp:         [10, 24, 24, 24, 24,  0],
-    triple_obstacles:      [ 8, 24, 24, 24, 24, 32],
-    gap_obstacle:          [ 6, 22, 22, 22, 22, 28],
-    obstacle_gap_obstacle: [ 4, 18, 18, 18, 18, 22],
-    gap_coin_obstacle:     [ 5, 20, 20, 20, 20,  0],
-    coin_chain:            [12, 18, 18, 18, 18,  0],
-    triple_gaps:           [ 4, 18, 18, 18, 18, 25],
-    ramp_gap:              [ 4, 16, 16, 16, 16,  0],
+    coin_sandwich:         [28, 28, 16, 28, 28, 28, 28,  0],
+    gap_ramp:              [24, 24, 13, 24, 24, 24, 24,  0],
+    obstacle_ramp:         [24, 24, 10, 24, 24, 24, 24,  0],
+    triple_obstacles:      [24, 24,  8, 24, 24, 24, 24, 32],
+    gap_obstacle:          [22, 22,  6, 22, 22, 22, 22, 28],
+    obstacle_gap_obstacle: [18, 18,  4, 18, 18, 18, 18, 22],
+    gap_coin_obstacle:     [20, 20,  5, 20, 20, 20, 20,  0],
+    coin_chain:            [18, 18, 12, 18, 18, 18, 18,  0],
+    triple_gaps:           [18, 18,  4, 18, 18, 18, 18, 25],
+    ramp_gap:              [16, 16,  4, 16, 16, 16, 16,  0],
     // gap_aircoin: Loch mit Coin in der Luft daruber (nur via LonG-Apex erreichbar).
     // Belohnt mid-air Switch von LonG zu Shizzo. Auf allen Ebenen, sanfter auf Ebene 1.
-    gap_aircoin:           [15, 35, 35, 35, 35, 35],
+    gap_aircoin:           [35, 35, 15, 35, 35, 35, 35, 35],
     // ----- Ebene-6-exklusive Rampen-Varianten mit 40/30/20/10 Verteilung -----
     // Total ~200 events/100m = ~1 Rampe alle 5s @ Top-Speed. Deutlich mehr Action.
-    top_ramp_alone:        [ 0,  0,  0,  0,  0, 80], // 40% -- Rampe ohne Reward
-    top_ramp_coin:         [ 0,  0,  0,  0,  0, 60], // 30% -- Rampe + 1 Coin
-    top_arc_coins:         [ 0,  0,  0,  0,  0, 40], // 20% -- Rampe + 3 Coins
-    ramp_oneup:            [ 0,  0,  0,  0,  0, 20]  // 10% -- Rampe + 1up (eligibility-gated)
+    top_ramp_alone:        [ 0,  0,  0,  0,  0,  0,  0, 80], // 40% -- Rampe ohne Reward
+    top_ramp_coin:         [ 0,  0,  0,  0,  0,  0,  0, 60], // 30% -- Rampe + 1 Coin
+    top_arc_coins:         [ 0,  0,  0,  0,  0,  0,  0, 40], // 20% -- Rampe + 3 Coins
+    ramp_oneup:            [ 0,  0,  0,  0,  0,  0,  0, 20]  // 10% -- Rampe + 1up (eligibility-gated)
   };
 
   function spawnPattern(name, lvl){
@@ -1193,12 +1196,14 @@ const LONG_RUN = new SpriteAnim({
     // Level 0 erstreckt sich zusaetzlich nach unten zur Bildschirmkante (Underground).
     // MAX_LEVEL (oberste Etage) bleibt transparent -> Sky bleibt sichtbar.
     const LEVEL_COLORS = [
-      '#1a2348', // Level 0 - deep blue
-      '#2a1840', // Level 1 - deep purple
-      '#1a3a35', // Level 2 - deep teal
-      '#3a1a28', // Level 3 - deep wine
-      '#3a2818', // Level 4 - deep amber
-      null       // Level 5 (MAX_LEVEL) - transparent (Sky)
+      '#0d0a14', // Code Level 0 = Ebene -1 - underground (sehr dunkel)
+      '#181410', // Code Level 1 = Ebene  0 - gutter (dunkel-braun)
+      '#1a2348', // Code Level 2 = Ebene  1 - deep blue (Training Room)
+      '#2a1840', // Code Level 3 = Ebene  2 - deep purple (Night Club)
+      '#1a3a35', // Code Level 4 = Ebene  3 - deep teal (Battle Ground)
+      '#3a1a28', // Code Level 5 = Ebene  4 - deep wine (TV Studio)
+      '#3a2818', // Code Level 6 = Ebene  5 - deep amber (Theater Stage)
+      null       // Code Level 7 = Ebene  6 - transparent (Sky, Spaceship)
     ];
     // Scroll-Offset in CSS-Pixeln (basis fuer alle Tile-Backgrounds)
     const scrollPx = distance * PIXELS_PER_METER;
@@ -1413,10 +1418,11 @@ const LONG_RUN = new SpriteAnim({
 
     // -------- Sprite-Pfad (nur fuer Helden mit hinterlegtem Sprite, z.B. Lou) --------
     if(useSprite){
-      // quadratischer Sprite-Frame; Skalierung so dass die Figur etwa Player-Hoehe hat.
-      // Sprite-Asset hat Whitespace oben/unten -> 1.9x p.h trifft visuell die Hitbox-Hoehe gut.
-      const targetH = p.h * 1.9;
-      const targetW = targetH; // Frames sind 1:1 (128x128)
+      // Pixel-Perfect: rendere Sprite auf doppelte Source-Aufloesung (256x256 fest).
+      // Bei DPR=2 ergibt das 4x source = exakt ganzzahliger Scale -> knackig.
+      // Bei DPR=1 ergibt das 2x source = ebenfalls integer.
+      const targetH = 256;
+      const targetW = 256; // Frames sind 1:1 (128x128 source)
       const dx = (x + p.w/2) - targetW/2;
       const dy = (y + p.h) - targetH; // Fuesse an der Player-Unterkante ausrichten
       char.sprite.draw(ctx, p.spriteTime, dx, dy, targetW, targetH, p.onGround);
