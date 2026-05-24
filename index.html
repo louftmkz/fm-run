@@ -585,6 +585,8 @@ const LONG_RUN = new SpriteAnim({
   });
   // Tastatur 1..4 als Shortcut (Desktop-Test)
   window.addEventListener('keydown', (e) => {
+    const m = document.getElementById('fmModal');
+    if(m && !m.classList.contains('hidden')) return; // Ranking-Modal offen -> Tasten gehören dem Modal
     const map = { '1':'lou', '2':'sasch', '3':'shizzo', '4':'long' };
     if(map[e.key]) setActiveCharacter(map[e.key]);
   });
@@ -705,6 +707,8 @@ const LONG_RUN = new SpriteAnim({
   }
 
   window.addEventListener('keydown', (e)=>{
+    const m = document.getElementById('fmModal');
+    if(m && !m.classList.contains('hidden')) return; // Ranking-Modal offen -> Tasten gehören dem Modal
     if(e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Enter'){
       e.preventDefault();
       tryStart();
@@ -714,6 +718,8 @@ const LONG_RUN = new SpriteAnim({
   function onPointer(e){
     if(e.target.closest('.btn')) return;
     if(e.target.closest('.charbtn')) return; // Charakter-Buttons handhaben sich selbst
+    if(e.target.closest('#fmModal')) return; // Ranking-Modal handhabt sich selbst (inkl. Eingabefelder)
+    if(e.target.closest('.account')) return; // Account-Chip (Anmelden/Abmelden) startet nicht das Spiel
     e.preventDefault();
     tryStart();
   }
