@@ -2,10 +2,12 @@
 // Strategy: cache-first für statische Assets, network-first für HTML (damit Updates beim
 // neuen Deploy schnell durchkommen).
 
-const CACHE_NAME = 'fm-run-v11';
+const CACHE_NAME = 'fm-run-v12';
 const PRECACHE = [
   './',
   './index.html',
+  './ranking.js',
+  './vendor/supabase.min.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
