@@ -66,7 +66,10 @@
     if(profile){
       let localBest = 0;
       try { localBest = parseInt(localStorage.getItem('fmrun_best') || '0', 10) || 0; } catch(e){}
-      if(localBest > 0){ try { await sb.rpc('submit_score', { p_distance: localBest }); } catch(e){} }
+      if(localBest > (profile.best_distance || 0)){
+        try { const { data } = await sb.rpc('submit_score', { p_distance: localBest });
+              if(typeof data === 'number') profile.best_distance = data; } catch(e){}
+      }
     }
   }
 
@@ -120,6 +123,7 @@
         throw error;
       }
       await loadProfile();      // lädt Profil + migriert lokalen Best
+      if(!profile) profile = { id: session.user.id, handle, best_distance: 0 };
       updateAccountChip();
       hideModal();
       toast('Handle gespeichert: @' + handle);
@@ -129,7 +133,7 @@
   }
 
   async function signOut(){
-    try { await sb.auth.signOut(); } catch(e){}
+    if(sb){ try { await sb.auth.signOut(); } catch(e){} }
     session = null; profile = null;
     updateAccountChip(); hideModal();
     toast('Abgemeldet');
@@ -197,10 +201,17 @@
     $('boardList').innerHTML = '<div class="fmlist-empty">Lädt…</div>';
     try {
       const { data, error } = await sb.from('profiles')
-        .select('handle, best_distance').order('best_distance', { ascending: false }).limit(100);
+        .select('id, handle, best_distance').order('best_distance', { ascending: false }).limit(100);
       if(error) throw error;
-      const rows = (data || []).map(r => ({ ...r, is_me: profile && r.handle === profile.handle }));
+      const rows = (data || []).map(r => ({ ...r, is_me: !!(session && r.id === session.user.id) }));
       renderBoard(rows);
+      try {
+        const { data: rank } = await sb.rpc('my_worldwide_rank');
+        if(typeof rank === 'number'){
+          $('boardList').insertAdjacentHTML('beforeend',
+            '<div class="fmlist-empty">Dein Welt-Rang: #' + rank + '</div>');
+        }
+      } catch(e){}
     } catch(e){ $('boardList').innerHTML = '<div class="fmlist-empty">Fehler beim Laden.</div>'; }
   }
 
@@ -259,8 +270,9 @@
   }
 
   async function loadRequestsAndFriends(){
-    const reqList = $('requestList'), frList = $('friendList');
+    const reqList = $('requestList'), frList = $('friendList'), sentList = $('sentList');
     reqList.innerHTML = '<div class="fmlist-empty">Lädt…</div>';
+    if(sentList) sentList.innerHTML = '<div class="fmlist-empty">Lädt…</div>';
     frList.innerHTML = '<div class="fmlist-empty">Lädt…</div>';
     try {
       // Eingehende Anfragen: ich bin addressee, pending; Requester-Handle joinen
@@ -275,6 +287,17 @@
             + '<button class="fmminibtn no" data-remove="' + r.id + '">X</button>'
             + '</span></div>').join('')
         : '<div class="fmlist-empty">Keine offenen Anfragen.</div>';
+
+      // Ausgehende Anfragen: ich bin requester, pending; Addressee-Handle joinen
+      const { data: sent } = await sb.from('friendships')
+        .select('id, status, addressee:profiles!friendships_addressee_id_fkey(handle)')
+        .eq('requester_id', session.user.id).eq('status', 'pending');
+      $('sentList').innerHTML = (sent && sent.length)
+        ? sent.map(s => '<div class="fmlist-row"><span class="who">@'
+            + escapeHtml(s.addressee ? s.addressee.handle : '?') + '</span>'
+            + '<span class="dist">ausstehend</span>'
+            + '<span class="act"><button class="fmminibtn no" data-remove="' + s.id + '">X</button></span></div>').join('')
+        : '<div class="fmlist-empty">Keine gesendeten Anfragen.</div>';
 
       // Akzeptierte Freunde (beide Richtungen)
       const { data: fr } = await sb.from('friendships')
@@ -293,23 +316,28 @@
         : '<div class="fmlist-empty">Noch keine Freunde.</div>';
     } catch(e){
       reqList.innerHTML = '<div class="fmlist-empty">Fehler.</div>';
+      if(sentList) sentList.innerHTML = '';
       frList.innerHTML = '';
     }
   }
 
   async function acceptRequest(id){
-    try { await sb.from('friendships').update({ status: 'accepted' }).eq('id', id); toast('Angenommen'); }
-    catch(e){ toast('Fehlgeschlagen'); }
-    loadRequestsAndFriends();
+    try {
+      await sb.from('friendships').update({ status: 'accepted' }).eq('id', id);
+      toast('Angenommen');
+      loadRequestsAndFriends();
+    } catch(e){ toast('Fehlgeschlagen'); }
   }
   async function removeFriendship(id){
-    try { await sb.from('friendships').delete().eq('id', id); }
-    catch(e){ toast('Fehlgeschlagen'); }
-    loadRequestsAndFriends();
+    try {
+      await sb.from('friendships').delete().eq('id', id);
+      loadRequestsAndFriends();
+    } catch(e){ toast('Fehlgeschlagen'); }
   }
 
   // ---------- Boot ----------
   async function init(){
+    wireButtons();
     if(!cfgOk()){ console.info('[ranking] Supabase nicht konfiguriert — Ranking deaktiviert.'); return; }
     try {
       sb = window.supabase.createClient(cfg.url, cfg.anonKey);
@@ -317,14 +345,14 @@
       session = data.session || null;
       await loadProfile();
       updateAccountChip();
-      sb.auth.onAuthStateChange((_evt, s) => {
+      sb.auth.onAuthStateChange((evt, s) => {
+        if(evt === 'INITIAL_SESSION') return;
         session = s || null;
         loadProfile().then(updateAccountChip);
       });
     } catch(e){
       console.warn('[ranking] init fehlgeschlagen:', e);
     }
-    wireButtons();
   }
 
   // ---------- Buttons ----------
@@ -351,8 +379,8 @@
     // Delegation: Annehmen/Entfernen auf dynamisch gerenderten Zeilen
     const modal = $('fmModal');
     if(modal) modal.addEventListener('click', (ev) => {
-      const a = ev.target.closest('[data-accept]'); if(a){ acceptRequest(a.getAttribute('data-accept')); return; }
-      const r = ev.target.closest('[data-remove]'); if(r){ removeFriendship(r.getAttribute('data-remove')); return; }
+      const a = ev.target.closest('[data-accept]'); if(a){ a.disabled = true; acceptRequest(a.getAttribute('data-accept')); return; }
+      const r = ev.target.closest('[data-remove]'); if(r){ r.disabled = true; removeFriendship(r.getAttribute('data-remove')); return; }
     });
   }
 
