@@ -364,15 +364,27 @@ const LONG_RUN = new SpriteAnim({
   // Sobald hier ein Pfad gesetzt wird, laed das Spiel beim Boot das Bild und nutzt es
   // auf der entsprechenden Ebene statt der prozeduralen Form. Bilder werden lazy geladen.
   // Index = Code Level 0..7 (= Ebene -1, 0, 1, 2, 3, 4, 5, 6)
+  // Per-Ebene Coin-SpriteAnims (animierte Spritesheets).
+  // Hitbox bleibt fuer alle Coins gleich (COIN_RADIUS=11), Sprite wird in seiner
+  // nativen Frame-Groesse mittig auf die Coin-Position gerendert -> fair.
+  const COIN_SPRITE_1 = new SpriteAnim({
+    src: './sprites/coin-1.png',
+    frames: 6,
+    frameW: 14,
+    frameH: 13,
+    fps: 10,
+    loop: true,
+    freezeFrame: 0
+  });
   const LEVEL_COIN_SPRITES = [
     null, // Code Level 0 = Ebene -1 (Underground)
     null, // Code Level 1 = Ebene  0 (Gutter)
-    null, // Code Level 2 = Ebene  1 (Training Room)
-    null, // Code Level 3 = Ebene  2 (Night Club)
-    null, // Code Level 4 = Ebene  3 (Battle Ground)
-    null, // Code Level 5 = Ebene  4 (TV Studio)
-    null, // Code Level 6 = Ebene  5 (Theater Stage)
-    null  // Code Level 7 = Ebene  6 (Spaceship)
+    COIN_SPRITE_1, // Code Level 2 = Ebene 1 (Training Room) -- erstes Coin-Design
+    null, // Code Level 3 = Ebene 2 (Night Club)
+    null, // Code Level 4 = Ebene 3 (Battle Ground)
+    null, // Code Level 5 = Ebene 4 (TV Studio)
+    null, // Code Level 6 = Ebene 5 (Theater Stage)
+    null  // Code Level 7 = Ebene 6 (Spaceship)
   ];
   const LEVEL_OBSTACLE_SPRITES = [
     null, null, null, null, null, null, null, null
@@ -403,7 +415,7 @@ const LONG_RUN = new SpriteAnim({
   // ---------- player ----------
   const player = {
     x: 0, y: 0,
-    w: 44, h: 56,
+    w: 70, h: 80,
     vy: 0,
     onGround: true,
     jumpsUsed: 0,
@@ -681,19 +693,34 @@ const LONG_RUN = new SpriteAnim({
   function spawnCoin(lvl){
     coins.push({x: W + 20, level: lvl});
   }
+  // Cross-Level Konflikt-Checks: verhindert vertikal gestapelte Rampen/Luecken.
+  // overlap = [x, x+w] eines neuen Spawns kollidiert mit Element der adjacenten Ebene.
+  function hasOverlapOnLevel(arr, lvlMatch, x, w){
+    for(const o of arr){
+      if(lvlMatch(o.level) && o.x + o.w > x && o.x < x + w) return true;
+    }
+    return false;
+  }
   function spawnGap(lvl){
     const w = 80 + Math.random()*50;
     const x = W + 20;
+    // Skip wenn auf Ebene darunter (lvl-1) eine Rampe genau hier ist
+    // -> sonst landet Lou nach Aufstieg in dem Loch.
+    if(hasOverlapOnLevel(ramps, l => l === lvl - 1, x, w)) return;
     gaps.push({x, w, level: lvl});
-    // 20% Chance: Coin schwebt mittig ueber dem Loch -> belohnt mid-air-Switch
-    // LonG (springt) -> Shizzo (sammelt). Coin auf Hoehe des Sprung-Apex.
     if(Math.random() < 0.20){
       coins.push({ x: x + w/2, level: lvl, yOffset: 110 });
     }
   }
   function spawnRamp(lvl){
     const w = 110 + Math.random()*40;
-    ramps.push({x: W + 20, w, level: lvl});
+    const x = W + 20;
+    // Skip wenn auf der Ebene darunter (lvl-1) oder darueber (lvl+1) bereits eine Rampe ist
+    // -> kein direktes Stapeln, sequentiell ist OK (verschiedene x-Positionen)
+    if(hasOverlapOnLevel(ramps, l => l === lvl - 1 || l === lvl + 1, x, w)) return;
+    // Skip wenn auf der Ebene darueber (lvl+1) ein Loch ist -> Lou wuerde reinfallen
+    if(hasOverlapOnLevel(gaps,  l => l === lvl + 1, x, w)) return;
+    ramps.push({x, w, level: lvl});
   }
   function spawnObstacle(lvl){
     const r = Math.random();
@@ -838,16 +865,19 @@ const LONG_RUN = new SpriteAnim({
   };
 
   function spawnForceFall(lvl){
-    // Bei 350m auf einer Ebene: erzwinge Fall zur Ebene darunter.
-    // Underground (Level 0): mandatory Lou-Rampe + danach Force-Gap (Game Over wenn kein Lou).
+    // Bei FORCE_FALL_DISTANCE auf einer Ebene: erzwinge Fall zur Ebene darunter.
+    // Underground (Level 0): mandatory Lou-Rampe + danach Force-Gap.
     // Sonstige Ebenen: einfach Force-Gap (zu breit fuer LonG-Sprung).
+    // Spawn-X wird hinter das rechteste Element auf der Ebene gesetzt --
+    // verhindert dass Force-Gap mit gerade gespawntem Hindernis ueberlappt.
     const FORCE_GAP_W = 350;
+    const last = rightmostEntityInfoForLevel(lvl);
+    const safeX = Math.max(W + 20, (last.x === -Infinity ? W + 20 : last.x + 60));
     if(lvl === 0){
-      // Lou-Test auf Underground
-      ramps.push({ x: W + 20, w: 130, level: 0, forced: true });
-      gaps.push({ x: W + 20 + 130 + 100, w: FORCE_GAP_W, level: 0, forced: true });
+      ramps.push({ x: safeX, w: 130, level: 0, forced: true });
+      gaps.push({ x: safeX + 130 + 100, w: FORCE_GAP_W, level: 0, forced: true });
     } else {
-      gaps.push({ x: W + 20, w: FORCE_GAP_W, level: lvl, forced: true });
+      gaps.push({ x: safeX, w: FORCE_GAP_W, level: lvl, forced: true });
     }
   }
 
@@ -1508,15 +1538,17 @@ const LONG_RUN = new SpriteAnim({
     // Werden auf allen Etagen gerendert (Lebendigkeit), interagieren aber nur mit dem Spieler
     // wenn er auf der gleichen Etage UND als Shizzo unterwegs ist.
     const coinPulse = Math.sin(timeAlive * 6);
-    const coinSize = COIN_RADIUS * 2; // fuer Sprite-Render (Bounding-Box)
     for(const c of coins){
       const yOff = c.yOffset != null ? c.yOffset : COIN_Y_OFFSET;
       const cy = levelFloorY(c.level) - yOff + coinPulse * 1.5;
       if(cy < -30 || cy > H + 30) continue;
-      const sprite = getLevelSpriteImage(LEVEL_COIN_SPRITES, c.level);
-      if(sprite && sprite.complete && sprite.naturalWidth > 0){
-        // Sprite zentriert auf coin position
-        ctx.drawImage(sprite, Math.round(c.x - COIN_RADIUS), Math.round(cy - COIN_RADIUS), coinSize, coinSize);
+      const spriteAnim = LEVEL_COIN_SPRITES[c.level];
+      if(spriteAnim && spriteAnim.ready){
+        // Animiertes Sprite in nativer Frame-Groesse, mittig auf Coin-Position.
+        // Hitbox (COIN_RADIUS) bleibt unveraendert -> faire/uniforme Pickup-Reichweite.
+        const sw = spriteAnim.frameW;
+        const sh = spriteAnim.frameH;
+        spriteAnim.draw(ctx, timeAlive, c.x - sw/2, cy - sh/2, sw, sh, true);
       } else {
         // Procedural: Goldkreis mit Highlight
         ctx.fillStyle = '#cc8a00';
