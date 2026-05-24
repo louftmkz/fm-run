@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>FM RUN – App installieren</title>
+<meta name="description" content="Wechsle den Helden, weiche Hindernissen aus, sammle Coins. Installiere FM RUN auf deinem Gerät." />
+<meta name="theme-color" content="#0f1530" />
+
+<!-- PWA: gleiches Manifest wie das Spiel -> installiert die App, die bei start_url "./" ins Spiel startet -->
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" href="favicon.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="FM RUN" />
+
+<!-- Link-Vorschau beim Versenden (WhatsApp / iMessage / Social) -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="FM RUN – Jetzt installieren" />
+<meta property="og:description" content="Wechsle den Helden, weiche Hindernissen aus, sammle Coins." />
+<meta property="og:image" content="https://fm-run.vercel.app/icon-512.png" />
+<meta property="og:url" content="https://fm-run.vercel.app/install" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="FM RUN – Jetzt installieren" />
+<meta name="twitter:description" content="Wechsle den Helden, weiche Hindernissen aus, sammle Coins." />
+<meta name="twitter:image" content="https://fm-run.vercel.app/icon-512.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
+
+<script>
+  // Service Worker registrieren -> erfuellt die PWA-Install-Kriterien auch bei Direktaufruf von /install
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+    });
+  }
+</script>
+
+<style>
+  :root{
+    --bg-0:#070b1a;
+    --bg-1:#0f1530;
+    --accent:#ffcc33;
+    --accent-2:#ff4d8d;
+    --ink:#e8ecff;
+    --ink-dim:#8993b8;
+    --card:rgba(255,255,255,0.04);
+    --card-bd:rgba(255,255,255,0.10);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100%}
+  body{
+    background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 60%) fixed, var(--bg-0);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    display:flex;justify-content:center;
+    padding:max(28px,env(safe-area-inset-top)) 20px max(40px,env(safe-area-inset-bottom));
+  }
+  .page{width:100%;max-width:460px;display:flex;flex-direction:column;align-items:center;text-align:center}
+
+  /* App-Identitaet */
+  .appicon{
+    width:104px;height:104px;border-radius:24px;display:block;
+    box-shadow:0 12px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06) inset, 0 0 40px rgba(255,204,51,.18);
+    image-rendering:auto;
+  }
+  .title{
+    font-family:'Press Start 2P',system-ui,sans-serif;
+    font-size:34px;line-height:1.1;letter-spacing:2px;margin:22px 0 0;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .sub{color:var(--ink-dim);margin:14px 0 0;font-size:15px;line-height:1.5;max-width:340px}
+
+  /* Aktionsbereich */
+  .actions{width:100%;margin-top:30px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .state{display:none;width:100%;flex-direction:column;align-items:center;gap:14px}
+  .state.show{display:flex}
+
+  .btn{
+    -webkit-appearance:none;appearance:none;text-decoration:none;
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;max-width:340px;
+    border:0;border-radius:999px;padding:18px 28px;
+    font-size:18px;font-weight:800;letter-spacing:.4px;
+    background:var(--accent);color:#1a1a1a;cursor:pointer;
+    box-shadow:0 10px 28px rgba(255,204,51,.28);
+    transition:transform .08s ease,box-shadow .2s ease;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn svg{width:22px;height:22px;flex:none}
+  .btn.secondary{
+    background:transparent;color:var(--ink);
+    box-shadow:none;border:1.5px solid var(--card-bd);font-weight:700;font-size:16px;padding:15px 26px;
+  }
+  .btn.success{background:linear-gradient(90deg,#86efac,#5fd0a0);color:#0c2a1c}
+
+  .loading{color:var(--ink-dim);font-size:14px;display:flex;align-items:center;gap:10px}
+  .spinner{width:16px;height:16px;border:2px solid var(--card-bd);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Karten (iOS-Anleitung, Fallback, QR) */
+  .card{
+    width:100%;background:var(--card);border:1px solid var(--card-bd);
+    border-radius:18px;padding:22px;text-align:left;
+  }
+  .card h2{
+    font-family:'Press Start 2P',system-ui,sans-serif;font-size:12px;letter-spacing:1px;
+    color:var(--accent);margin:0 0 16px;line-height:1.5;
+  }
+  .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+  .steps li{display:flex;align-items:center;gap:13px;font-size:15px;line-height:1.45;color:var(--ink)}
+  .num{
+    flex:none;width:28px;height:28px;border-radius:50%;
+    background:rgba(255,204,51,.14);border:1px solid rgba(255,204,51,.35);
+    color:var(--accent);font-weight:800;font-size:14px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .ico{flex:none;width:24px;height:24px;color:var(--accent);vertical-align:middle}
+  .steps b{color:#fff}
+
+  /* Charakter-Galerie */
+  .chars{width:100%;margin-top:34px}
+  .chars-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-dim);margin-bottom:14px}
+  .charrow{display:flex;gap:10px;justify-content:center}
+  .char{flex:1;max-width:90px;display:flex;flex-direction:column;align-items:center;gap:7px}
+  .char .frame{
+    width:100%;aspect-ratio:1;border-radius:12px;
+    border:2px solid var(--cc,rgba(255,255,255,.18));
+    background:rgba(255,255,255,.03);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    box-shadow:0 0 14px -4px var(--cc,transparent);
+  }
+  .char .frame img{width:62%;height:62%;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+  .char .nm{font-family:'Press Start 2P',system-ui,sans-serif;font-size:9px;color:var(--ink-dim);letter-spacing:.5px}
+
+  /* QR (nur Desktop) */
+  .qr{align-items:center;text-align:center}
+  .qr-img{width:188px;height:188px;background:#fff;border-radius:14px;padding:12px;display:block;margin:4px auto 0;image-rendering:pixelated}
+
+  .foot{margin-top:34px;color:var(--ink-dim);font-size:12px;line-height:1.6}
+  .foot a{color:var(--ink-dim)}
+</style>
+</head>
+<body>
+<main class="page">
+  <img class="appicon" src="icon-512.png" alt="FM RUN App-Icon" width="104" height="104" />
+  <h1 class="title">FM&nbsp;RUN</h1>
+  <p class="sub">Wechsle den Helden, weiche Hindernissen aus, sammle Coins. Installier dir das Spiel direkt aufs Gerät.</p>
+
+  <div class="actions">
+    <!-- Wird beim Laden gezeigt, bis klar ist welcher Pfad gilt -->
+    <div class="state show" id="stateLoading">
+      <div class="loading"><span class="spinner"></span> Installation wird vorbereitet…</div>
+    </div>
+
+    <!-- Android / Desktop-Chrome/Edge: echter 1-Klick-Prompt -->
+    <div class="state" id="stateButton">
+      <button class="btn" id="btnInstall">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
+        App installieren
+      </button>
+    </div>
+
+    <!-- Bereits installiert -->
+    <div class="state" id="stateInstalled">
+      <a class="btn success" href="./">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6-11 11-5-5"/></svg>
+        App ist installiert – öffnen
+      </a>
+    </div>
+
+    <!-- iOS Safari: manuelle Anleitung -->
+    <div class="state" id="stateIOS">
+      <div class="card">
+        <h2>So installierst du auf dem iPhone</h2>
+        <ol class="steps">
+          <li><span class="num">1</span>
+            <span>Tippe unten auf <b>Teilen</b>
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m8 8 4-4 4 4"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg>
+            </span>
+          </li>
+          <li><span class="num">2</span><span>Wähle <b>„Zum Home-Bildschirm"</b></span></li>
+          <li><span class="num">3</span><span>Tippe oben rechts auf <b>„Hinzufügen"</b> – fertig!</span></li>
+        </ol>
+      </div>
+      <p class="sub" id="iosSafariHint" style="margin-top:4px;display:none">Hinweis: Auf dem iPhone klappt das nur in <b>Safari</b>. Öffne diese Seite dort.</p>
+    </div>
+
+    <!-- Fallback (Firefox / Safari-Mac / unbekannt) -->
+    <div class="state" id="stateFallback">
+      <div class="card">
+        <h2>So installierst du</h2>
+        <ol class="steps">
+          <li><span class="num">1</span><span>Öffne das <b>Browser-Menü</b> (⋮ oder ⋯)</span></li>
+          <li><span class="num">2</span><span>Wähle <b>„App installieren"</b> bzw. <b>„Installieren"</b>.<br>Safari am Mac: <b>Teilen → „Zum Dock hinzufügen"</b></span></li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Immer: direkt spielen -->
+    <a class="btn secondary" href="./">Im Browser spielen</a>
+  </div>
+
+  <!-- Charakter-Galerie -->
+  <section class="chars">
+    <div class="chars-label">Deine Helden</div>
+    <div class="charrow">
+      <div class="char" style="--cc:#ffd95c"><div class="frame"><img src="sprites/button-lou.png" alt="Lou"></div><div class="nm">Lou</div></div>
+      <div class="char" style="--cc:#86efac"><div class="frame"><img src="sprites/button-sasch.png" alt="Sasch"></div><div class="nm">Sasch</div></div>
+      <div class="char" style="--cc:#fca5a5"><div class="frame"><img src="sprites/button-shizzo.png" alt="Shizzo"></div><div class="nm">Shizzo</div></div>
+      <div class="char" style="--cc:#93c5fd"><div class="frame"><img src="sprites/button-long.png" alt="LonG"></div><div class="nm">LonG</div></div>
+    </div>
+  </section>
+
+  <!-- QR (nur Desktop) -->
+  <section class="card qr state" id="qrCard" style="margin-top:34px">
+    <h2 style="text-align:center">Auf dem Handy installieren</h2>
+    <img class="qr-img" src="qr-install.png" alt="QR-Code zu fm-run.vercel.app/install" width="188" height="188" />
+    <p class="sub" style="margin:14px auto 0">Scanne den Code mit deiner Handy-Kamera und installiere FM&nbsp;RUN dort.</p>
+  </section>
+
+  <p class="foot">FM&nbsp;RUN · <a href="./">fm-run.vercel.app</a></p>
+</main>
+
+<script>
+(() => {
+  const ua = navigator.userAgent || '';
+  const $ = (id) => document.getElementById(id);
+
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  const isIOS =
+    /iphone|ipad|ipod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /android/i.test(ua);
+  // iOS-Browser, in denen "Zum Home-Bildschirm" nicht angeboten wird (alles ausser Safari)
+  const isIOSNonSafari = isIOS && /crios|fxios|edgios|opios|brave/i.test(ua);
+  const isDesktop = !isIOS && !isAndroid && window.matchMedia('(pointer: fine)').matches;
+
+  const states = ['stateLoading','stateButton','stateInstalled','stateIOS','stateFallback'];
+  function show(id){ states.forEach(s => $(s).classList.toggle('show', s === id)); }
+
+  // QR nur am Desktop und wenn nicht bereits installiert
+  if (isDesktop && !isStandalone) $('qrCard').classList.add('show');
+
+  let deferredPrompt = null;
+  let fallbackTimer = null;
+
+  function decide(){
+    if (isStandalone)       { show('stateInstalled'); return; }
+    if (deferredPrompt)     { show('stateButton'); return; }
+    if (isIOS)              { show('stateIOS'); if (isIOSNonSafari) $('iosSafariHint').style.display='block'; return; }
+    // Android/Desktop ohne Prompt -> kurz warten, sonst manuelle Anleitung
+    show('stateLoading');
+    clearTimeout(fallbackTimer);
+    fallbackTimer = setTimeout(() => { if (!deferredPrompt && !isStandalone) show('stateFallback'); }, 1800);
+  }
+
+  // Nativer Install-Prompt verfuegbar (Chrome, Edge, Samsung Internet, Android-Chrome)
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    clearTimeout(fallbackTimer);
+    show('stateButton');
+  });
+
+  $('btnInstall').addEventListener('click', async () => {
+    if (!deferredPrompt) { show('stateFallback'); return; }
+    deferredPrompt.prompt();
+    try {
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') show('stateInstalled');
+    } catch (_) {}
+    deferredPrompt = null;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    $('qrCard').classList.remove('show');
+    show('stateInstalled');
+  });
+
+  decide();
+})();
+</script>
+</body>
+</html>
