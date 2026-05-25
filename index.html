@@ -21,6 +21,14 @@
       navigator.serviceWorker.register('service-worker.js').catch(()=>{});
     });
   }
+  // Portrait-Lock: best-effort via Screen Orientation API (greift in installierten PWAs
+  // sowie modernen Chrome/Edge im Fullscreen; iOS Safari im Browser ignoriert das, hat
+  // aber bei standalone PWA via manifest die Sperre).
+  try {
+    if (screen.orientation && typeof screen.orientation.lock === 'function') {
+      screen.orientation.lock('portrait').catch(()=>{}); // silently fail wenn nicht supported
+    }
+  } catch(e){}
 </script>
 <style>
   :root{
@@ -98,22 +106,9 @@
   .hidden{display:none !important}
   .gameover .title{background:linear-gradient(90deg,var(--danger),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:8px;margin-left:8px;vertical-align:middle}
-  /* Portrait-Lock: in Landscape -> "Bitte drehen"-Overlay statt verzerrtes Spiel */
-  #rotate{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg-0);color:var(--ink);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px;font-family:var(--pixel);gap:14px}
-  #rotate .icon{font-size:36px;letter-spacing:2px}
-  #rotate .msg{font-size:11px;line-height:1.6;color:#d8def5;text-shadow:0 2px 0 rgba(0,0,0,0.75)}
-  @media (orientation: landscape) and (max-height: 500px){
-    #wrap{display:none}
-    #rotate{display:flex}
-  }
 </style>
 </head>
 <body>
-<!-- Landscape-Sperre: nur Portrait spielbar -->
-<div id="rotate">
-  <div class="icon">FM RUN</div>
-  <div class="msg">Bitte Telefon drehen<br>Nur Portrait spielbar</div>
-</div>
 <div id="wrap">
   <div id="gamearea">
     <canvas id="game"></canvas>
