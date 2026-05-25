@@ -35,8 +35,8 @@
     --danger:#ff5566;
     --pixel:'Press Start 2P',ui-monospace,'Courier New',monospace;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:var(--pixel);-webkit-tap-highlight-color:transparent;user-select:none;touch-action:none}
+  *{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:var(--pixel);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
   /* Mobile-only Layout: auf Desktop wird das Spielfeld auf Phone-Aspect (max 430px) zentriert.
      Auf Mobile fuellt es weiterhin den ganzen Bildschirm. */
   body{background:#050714}
@@ -46,9 +46,13 @@
   .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
   /* Bottom-Nav: Charakter-Buttons + Pause/Play darunter mittig.
      Hoehe = content-based via flex:0 0 auto -> waechst genau soviel wie Inhalt braucht. */
-  .charnav{display:flex;flex-direction:column;flex:0 0 auto;padding:10px 10px max(10px,env(safe-area-inset-bottom)) 10px;gap:10px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
-  .charrow{display:flex;gap:8px}
-  .charslot{flex:1;display:flex;flex-direction:column;gap:4px;align-items:stretch;min-width:0}
+  .charnav{display:flex;flex-direction:column;flex:0 0 auto;padding:10px 10px max(10px,env(safe-area-inset-bottom)) 10px;gap:18px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
+  /* Char-Buttons fuellen die volle Breite OHNE Luecken (kein Tap-Through).
+     Visueller Abstand via padding innerhalb der Slots, Klick ist auf den ganzen Slot gebunden. */
+  .charrow{display:flex;gap:0}
+  .charslot{flex:1 1 0;display:flex;flex-direction:column;gap:4px;align-items:stretch;min-width:0;padding:0 4px;cursor:pointer}
+  .charslot:first-child{padding-left:0}
+  .charslot:last-child{padding-right:0}
   .charbtn{height:80px;border-radius:6px;border:2px solid rgba(255,255,255,0.22);background:transparent;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;display:block;position:relative;padding:0;overflow:hidden}
   .charbtn img{image-rendering:pixelated;image-rendering:crisp-edges;display:block;pointer-events:none;position:absolute}
   .charbtn .face{width:50px;height:50px;top:50%;left:50%;transform:translate(-50%,-50%)}
@@ -75,8 +79,9 @@
   .coins{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-size:14px;flex:1;justify-content:center}
   .coin-dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(255,204,51,0.5)}
   .lives{display:flex;align-items:center;gap:5px;flex:1;justify-content:flex-end}
-  .heart{width:22px;height:22px;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff5566"><path d="M12 21s-7-4.5-7-11a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 6.5-7 11-7 11z"/></svg>') center/contain no-repeat;opacity:.22;transition:opacity .25s ease,transform .25s ease}
-  .heart.full{opacity:1;transform:scale(1.05)}
+  /* Heart-Sprites (Pixel-Art, 22x22 PNG). Empty = leerer Rahmen, Full = gefuelltes Herz. */
+  .heart{width:22px;height:22px;background:url('./sprites/heart-empty.png') center/contain no-repeat;image-rendering:pixelated;image-rendering:crisp-edges;transition:transform .25s ease}
+  .heart.full{background-image:url('./sprites/heart-full.png');transform:scale(1.05)}
   /* Life-loss feedback: Lives-Container schuettelt 5x in ~400ms */
   @keyframes lifeShake{
     0%,100%{transform:translateX(0)}
@@ -86,16 +91,29 @@
   .lives.shake{animation:lifeShake .4s ease-in-out}
   .center{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:0 24px}
   .title{font-family:var(--pixel);font-size:36px;letter-spacing:2px;line-height:1.15;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 14px}
-  .sub{color:var(--ink-dim);margin:0 0 28px;font-size:9px;line-height:1.6}
+  .sub{color:#d8def5;margin:0 0 28px;font-size:9px;line-height:1.6;text-shadow:0 2px 0 rgba(0,0,0,0.75),0 0 8px rgba(0,0,0,0.5)}
   .btn{pointer-events:auto;border:0;border-radius:8px;padding:14px 22px;font-family:var(--pixel);font-size:12px;letter-spacing:1px;background:var(--accent);color:#1a1a1a;cursor:pointer;box-shadow:0 8px 24px rgba(255,204,51,.25);transition:transform .08s ease}
   .btn:active{transform:scale(.96)}
-  .hint{color:var(--ink-dim);margin-top:14px;font-size:8px;line-height:1.6}
+  .hint{color:#d8def5;margin-top:14px;font-size:8px;line-height:1.6;text-shadow:0 2px 0 rgba(0,0,0,0.75),0 0 8px rgba(0,0,0,0.5)}
   .hidden{display:none !important}
   .gameover .title{background:linear-gradient(90deg,var(--danger),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:8px;margin-left:8px;vertical-align:middle}
+  /* Portrait-Lock: in Landscape -> "Bitte drehen"-Overlay statt verzerrtes Spiel */
+  #rotate{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg-0);color:var(--ink);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px;font-family:var(--pixel);gap:14px}
+  #rotate .icon{font-size:36px;letter-spacing:2px}
+  #rotate .msg{font-size:11px;line-height:1.6;color:#d8def5;text-shadow:0 2px 0 rgba(0,0,0,0.75)}
+  @media (orientation: landscape) and (max-height: 500px){
+    #wrap{display:none}
+    #rotate{display:flex}
+  }
 </style>
 </head>
 <body>
+<!-- Landscape-Sperre: nur Portrait spielbar -->
+<div id="rotate">
+  <div class="icon">FM RUN</div>
+  <div class="msg">Bitte Telefon drehen<br>Nur Portrait spielbar</div>
+</div>
 <div id="wrap">
   <div id="gamearea">
     <canvas id="game"></canvas>
@@ -129,6 +147,11 @@
         <p class="sub" id="overText">0 m</p>
         <button class="btn" id="btnRestart">Nochmal</button>
         <div class="hint">Tap zum<br>Neustart</div>
+      </div>
+
+      <div class="center hidden" id="screenPause">
+        <h1 class="title">PAUSE</h1>
+        <div class="hint">Play-Button<br>zum Fortsetzen</div>
       </div>
     </div>
   </div>
@@ -563,11 +586,13 @@ const LONG_RUN = new SpriteAnim({
     }
   }
 
-  // Click-/Touch-Handler fuer die Bottom-Nav-Buttons
-  document.querySelectorAll('.charbtn').forEach(b => {
-    b.addEventListener('click', (e) => {
+  // Click-/Touch-Handler: kompletter Slot (inkl. Name + Padding) ist klickbar.
+  // -> keine Luecken zwischen Buttons, kein versehentliches Tap-Through ans Spielfeld.
+  document.querySelectorAll('.charslot').forEach(slot => {
+    slot.addEventListener('click', (e) => {
       e.stopPropagation();
-      setActiveCharacter(b.dataset.char);
+      const btn = slot.querySelector('.charbtn');
+      if(btn) setActiveCharacter(btn.dataset.char);
     });
   });
   // Tastatur 1..4 als Shortcut (Desktop-Test)
@@ -700,8 +725,8 @@ const LONG_RUN = new SpriteAnim({
   // Tap auf Spielflaeche -> nur Start/Restart (im PLAYING tut Tap nichts)
   function onPointer(e){
     if(e.target.closest('.btn')) return;
-    if(e.target.closest('.charbtn')) return; // Charakter-Buttons handhaben sich selbst
-    if(e.target.closest('.ctrlbtn')) return; // Pause/Play-Button -> eigener Handler
+    if(e.target.closest('.charslot')) return; // ganzer Char-Slot (Button + Name + Padding) -> eigener Handler
+    if(e.target.closest('.ctrlbtn')) return;  // Pause/Play-Button -> eigener Handler
     e.preventDefault();
     tryStart();
   }
@@ -715,14 +740,16 @@ const LONG_RUN = new SpriteAnim({
   // Draw laeuft weiter (sprites bleiben sichtbar). Button-Icon togglet Pause/Play.
   // Sichtbar nur waehrend aktivem Spiel (PLAYING/SLIDING/FALLING) -- nicht im READY/OVER.
   let paused = false;
-  const pauseBtn  = document.getElementById('btnPause');
-  const pauseIcon = document.getElementById('pauseIcon');
+  const pauseBtn   = document.getElementById('btnPause');
+  const pauseIcon  = document.getElementById('pauseIcon');
   const controlRow = document.getElementById('controlRow');
+  const screenPause = document.getElementById('screenPause');
   function resetPauseButtonUI(){
     paused = false;
     pauseIcon.src = './sprites/pause.png';
     pauseBtn.classList.remove('paused');
     pauseBtn.setAttribute('aria-label', 'Pause');
+    screenPause.classList.add('hidden');
   }
   function showPauseButton(){ controlRow.classList.remove('hidden'); }
   function hidePauseButton(){ controlRow.classList.add('hidden'); }
@@ -735,6 +762,7 @@ const LONG_RUN = new SpriteAnim({
     pauseIcon.src = paused ? './sprites/play.png' : './sprites/pause.png';
     pauseBtn.classList.toggle('paused', paused);
     pauseBtn.setAttribute('aria-label', paused ? 'Play' : 'Pause');
+    screenPause.classList.toggle('hidden', !paused); // PAUSE-Overlay ein-/ausblenden
     // Reset lastT damit beim Resume kein riesiger dt-Sprung passiert
     if(!paused) lastT = 0;
   }
