@@ -28,8 +28,8 @@
     --bg-1:#0f1530;
     --accent:#ffcc33;
     --accent-2:#ff4d8d;
-    --money:#5cdc8c;        /* gruener Glow fuer Money-Sprites + Shizzo-Verbindung */
-    --money-soft:#5cdc8c80; /* halbtransparent fuer dezente Outlines */
+    --money:#8cf0aa;        /* heller Spring-Green fuer Money-Glow + Shizzo-Verbindung */
+    --money-soft:#8cf0aa80; /* halbtransparent fuer dezente Outlines */
     --ink:#e8ecff;
     --ink-dim:#8993b8;
     --danger:#ff5566;
@@ -44,9 +44,10 @@
   #gamearea{flex:1;position:relative;min-height:0;overflow:hidden}
   canvas{display:block;width:100%;height:100%;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 70%)}
   .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
-  /* Bottom-Nav: Charakter-Buttons + darunter eine kleine Control-Row (Pause/Play).
-     Hoehe leicht erhoeht damit Control-Row daumenfreundlich sitzt. */
-  .charnav{display:flex;flex-direction:column;flex:0 0 168px;padding:10px 10px 0 10px;gap:8px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
+  /* Bottom-Nav: Charakter-Buttons + Pause/Play absolute am unteren Rand zentriert.
+     Charnav-Hoehe = original 122px -- Charbuttons bleiben dort wo sie waren.
+     Pause-Button sitzt im Safe-Area-Streifen darunter (auf iPhones ~34px Home-Indicator-Zone). */
+  .charnav{display:flex;flex-direction:column;flex:0 0 122px;padding:10px 10px 0 10px;gap:8px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06);position:relative}
   .charrow{display:flex;gap:8px}
   .charslot{flex:1;display:flex;flex-direction:column;gap:4px;align-items:stretch;min-width:0}
   .charbtn{height:80px;border-radius:6px;border:2px solid rgba(255,255,255,0.22);background:transparent;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;display:block;position:relative;padding:0;overflow:hidden}
@@ -58,15 +59,15 @@
   .charbtn:active{transform:scale(.95)}
   .charbtn.active{border-color:var(--accent);transform:scale(1.04);box-shadow:0 0 18px rgba(255,204,51,0.65),inset 0 0 0 1px rgba(255,204,51,0.45)}
   /* Shizzo = der Money-Sammler -> gruene Outline (default + active glow), visuelle Verbindung zu den Money-Sprites */
-  .charbtn[data-char="shizzo"]{border-color:rgba(92,220,140,0.45)}
-  .charbtn[data-char="shizzo"].active{border-color:var(--money);box-shadow:0 0 18px rgba(92,220,140,0.7),inset 0 0 0 1px rgba(92,220,140,0.55)}
+  .charbtn[data-char="shizzo"]{border-color:rgba(126,255,170,0.45)}
+  .charbtn[data-char="shizzo"].active{border-color:var(--money);box-shadow:0 0 18px rgba(126,255,170,0.75),inset 0 0 0 1px rgba(126,255,170,0.55)}
   .charbtn[data-char="shizzo"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--money)}
-  /* Control-Row (Pause/Play) -- daumen-freundlich, rechts mit Padding zum Rand */
-  .controlrow{display:flex;justify-content:flex-end;padding:0 4px}
-  .ctrlbtn{pointer-events:auto;width:48px;height:38px;border:2px solid rgba(255,255,255,0.22);background:transparent;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;padding:0}
-  .ctrlbtn img{image-rendering:pixelated;image-rendering:crisp-edges;width:18px;height:18px;display:block;pointer-events:none}
-  .ctrlbtn:active{transform:scale(.94)}
-  .ctrlbtn.paused{border-color:var(--accent);box-shadow:0 0 12px rgba(255,204,51,0.55)}
+  /* Pause/Play -- ICON ONLY, mittig, sitzt im Safe-Area-Streifen unter den Char-Buttons */
+  .controlrow{position:absolute;left:0;right:0;bottom:max(6px, env(safe-area-inset-bottom, 6px));display:flex;justify-content:center;pointer-events:none}
+  .ctrlbtn{pointer-events:auto;width:34px;height:34px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform .12s ease,filter .12s ease}
+  .ctrlbtn img{image-rendering:pixelated;image-rendering:crisp-edges;width:24px;height:24px;display:block;pointer-events:none}
+  .ctrlbtn:active{transform:scale(.88)}
+  .ctrlbtn.paused img{filter:drop-shadow(0 0 6px rgba(255,204,51,0.85))}
   .top{display:flex;justify-content:space-between;align-items:flex-start;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));letter-spacing:.5px;gap:12px}
   .charnav{padding-bottom:max(12px,env(safe-area-inset-bottom))}
   .scoreCol{display:flex;flex-direction:column;gap:4px;flex:1;text-align:left}
@@ -1651,15 +1652,24 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
-    // Money + 1up: dezenter gruener Outer-Glow (canvas shadow), visueller Kontrast +
-    // Brand-Verbindung zu Shizzo (dem Money-Sammler). Reset nach jedem Block.
-    const MONEY_GLOW_COLOR = '#5cdc8c';
-    const MONEY_GLOW_BLUR  = 10;
+    // Money + 1up: helles, intensives gruenes Glow-Stack (2 Passes).
+    // Pass 1 = breiter weicher Halo (Blur 18). Pass 2 = engerer Tight-Glow (Blur 8) ueber Pass 1.
+    // Ergibt einen kraeftigen, leuchtenden Rand statt einer dezenten Wolke -- folgt der
+    // Sprite-Alpha-Maske, daher pixel-genau auf der echten Silhouette (kein kreisrunder Halo).
+    const MONEY_GLOW_COLOR = '#8cf0aa';
+    function drawWithGreenGlow(sprite, time, dx, dy, dw, dh){
+      // Pass 1: weiter Halo
+      ctx.shadowColor = MONEY_GLOW_COLOR;
+      ctx.shadowBlur  = 18;
+      sprite.draw(ctx, time, dx, dy, dw, dh, true);
+      // Pass 2: enge intensive Kontur (re-draw mit kleinem Blur -> der Glow wird "dichter")
+      ctx.shadowBlur  = 8;
+      sprite.draw(ctx, time, dx, dy, dw, dh, true);
+      ctx.shadowBlur  = 0;
+    }
 
     // 1ups -- animiertes Sprite (1.5x), schwebt hoch in der Luft (Default 50px ueber Boden,
     // im ramp_oneup Pattern aber 228px ueber dem Top-Floor -- nur via Boost-Rampe erreichbar)
-    ctx.shadowColor = MONEY_GLOW_COLOR;
-    ctx.shadowBlur  = MONEY_GLOW_BLUR;
     for(const u of oneUps){
       if(u.x < -30 || u.x > W + 30) continue;
       const uYOff = u.yOffset != null ? u.yOffset : 50;
@@ -1668,22 +1678,18 @@ const LONG_RUN = new SpriteAnim({
       const sw = ONEUP_SPRITE.frameW * COIN_SCALE;
       const sh = ONEUP_SPRITE.frameH * COIN_SCALE;
       if(ONEUP_SPRITE.ready){
-        ONEUP_SPRITE.draw(ctx, timeAlive, u.x - sw/2, uy - sh/2, sw, sh, true);
+        drawWithGreenGlow(ONEUP_SPRITE, timeAlive, u.x - sw/2, uy - sh/2, sw, sh);
       } else {
-        // Fallback: pinker Kreis
         ctx.fillStyle = '#ff4d8d';
         ctx.beginPath(); ctx.arc(u.x, uy, 14, 0, Math.PI*2); ctx.fill();
       }
     }
-    ctx.shadowBlur = 0;
 
     // Money-Items (Coin / Stack / Bag / Case / Pot) -- animierte Sprites, 1.5x gerendert.
     // c.kind bestimmt Sprite + Wert (siehe SPRITE_BY_KIND / VALUE_BY_KIND).
     // Werden auf allen Etagen gerendert (Lebendigkeit), interagieren aber nur mit dem Spieler
     // wenn er auf der gleichen Etage UND als Shizzo unterwegs ist.
     const coinPulse = Math.sin(timeAlive * 6);
-    ctx.shadowColor = MONEY_GLOW_COLOR;
-    ctx.shadowBlur  = MONEY_GLOW_BLUR;
     for(const c of coins){
       const yOff = c.yOffset != null ? c.yOffset : COIN_Y_OFFSET;
       const cy = levelFloorY(c.level) - yOff + coinPulse * 1.5;
@@ -1693,7 +1699,7 @@ const LONG_RUN = new SpriteAnim({
       if(sa.ready){
         const sw = sa.frameW * COIN_SCALE;
         const sh = sa.frameH * COIN_SCALE;
-        sa.draw(ctx, timeAlive, c.x - sw/2, cy - sh/2, sw, sh, true);
+        drawWithGreenGlow(sa, timeAlive, c.x - sw/2, cy - sh/2, sw, sh);
       } else {
         // Procedural Fallback: Goldkreis mit Highlight
         ctx.fillStyle = '#cc8a00';
@@ -1704,7 +1710,6 @@ const LONG_RUN = new SpriteAnim({
         ctx.beginPath(); ctx.arc(c.x - 3, cy - 3, COIN_RADIUS * 0.35, 0, Math.PI*2); ctx.fill();
       }
     }
-    ctx.shadowBlur = 0;
 
     // player
     // Spieler -- Flicker-Animation waehrend Unverwundbarkeit nach Life-Loss
