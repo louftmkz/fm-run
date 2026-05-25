@@ -44,10 +44,9 @@
   #gamearea{flex:1;position:relative;min-height:0;overflow:hidden}
   canvas{display:block;width:100%;height:100%;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 70%)}
   .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
-  /* Bottom-Nav: Charakter-Buttons + Pause/Play absolute am unteren Rand zentriert.
-     Charnav-Hoehe = original 122px -- Charbuttons bleiben dort wo sie waren.
-     Pause-Button sitzt im Safe-Area-Streifen darunter (auf iPhones ~34px Home-Indicator-Zone). */
-  .charnav{display:flex;flex-direction:column;flex:0 0 122px;padding:10px 10px 0 10px;gap:8px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06);position:relative}
+  /* Bottom-Nav: Charakter-Buttons + Pause/Play darunter mittig.
+     Hoehe = content-based via flex:0 0 auto -> waechst genau soviel wie Inhalt braucht. */
+  .charnav{display:flex;flex-direction:column;flex:0 0 auto;padding:10px 10px max(10px,env(safe-area-inset-bottom)) 10px;gap:10px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
   .charrow{display:flex;gap:8px}
   .charslot{flex:1;display:flex;flex-direction:column;gap:4px;align-items:stretch;min-width:0}
   .charbtn{height:80px;border-radius:6px;border:2px solid rgba(255,255,255,0.22);background:transparent;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;display:block;position:relative;padding:0;overflow:hidden}
@@ -59,13 +58,13 @@
   .charbtn:active{transform:scale(.95)}
   .charbtn.active{border-color:var(--accent);transform:scale(1.04);box-shadow:0 0 18px rgba(255,204,51,0.65),inset 0 0 0 1px rgba(255,204,51,0.45)}
   /* Shizzo = der Money-Sammler -> gruene Outline (default + active glow), visuelle Verbindung zu den Money-Sprites */
-  .charbtn[data-char="shizzo"]{border-color:rgba(126,255,170,0.45)}
-  .charbtn[data-char="shizzo"].active{border-color:var(--money);box-shadow:0 0 18px rgba(126,255,170,0.75),inset 0 0 0 1px rgba(126,255,170,0.55)}
+  .charbtn[data-char="shizzo"]{border-color:rgba(140,240,170,0.45)}
+  .charbtn[data-char="shizzo"].active{border-color:var(--money);box-shadow:0 0 18px rgba(140,240,170,0.75),inset 0 0 0 1px rgba(140,240,170,0.55)}
   .charbtn[data-char="shizzo"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--money)}
-  /* Pause/Play -- ICON ONLY, mittig, sitzt im Safe-Area-Streifen unter den Char-Buttons */
-  .controlrow{position:absolute;left:0;right:0;bottom:max(6px, env(safe-area-inset-bottom, 6px));display:flex;justify-content:center;pointer-events:none}
-  .ctrlbtn{pointer-events:auto;width:34px;height:34px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform .12s ease,filter .12s ease}
-  .ctrlbtn img{image-rendering:pixelated;image-rendering:crisp-edges;width:24px;height:24px;display:block;pointer-events:none}
+  /* Pause/Play -- ICON ONLY, mittig unterhalb der Namen. Wird im Game-Over/Ready via .hidden ausgeblendet. */
+  .controlrow{display:flex;justify-content:center;align-items:center;height:28px;flex:0 0 auto}
+  .ctrlbtn{pointer-events:auto;width:34px;height:28px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform .12s ease,filter .12s ease}
+  .ctrlbtn img{image-rendering:pixelated;image-rendering:crisp-edges;width:22px;height:22px;display:block;pointer-events:none}
   .ctrlbtn:active{transform:scale(.88)}
   .ctrlbtn.paused img{filter:drop-shadow(0 0 6px rgba(255,204,51,0.85))}
   .top{display:flex;justify-content:space-between;align-items:flex-start;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));letter-spacing:.5px;gap:12px}
@@ -158,9 +157,9 @@
         <div class="charname">LonG</div>
       </div>
     </div>
-    <div class="controlrow">
+    <div class="controlrow hidden" id="controlRow">
       <button class="ctrlbtn" id="btnPause" aria-label="Pause">
-        <img id="pauseIcon" src="./sprites/pause.png" alt="" width="18" height="18">
+        <img id="pauseIcon" src="./sprites/pause.png" alt="" width="22" height="22">
       </button>
     </div>
   </div>
@@ -682,19 +681,22 @@ const LONG_RUN = new SpriteAnim({
   // ---------- Pause / Resume ----------
   // Pause friert update(dt) ein -- Sidescroll, Spawning, Physik stehen still.
   // Draw laeuft weiter (sprites bleiben sichtbar). Button-Icon togglet Pause/Play.
+  // Sichtbar nur waehrend aktivem Spiel (PLAYING/SLIDING/FALLING) -- nicht im READY/OVER.
   let paused = false;
   const pauseBtn  = document.getElementById('btnPause');
   const pauseIcon = document.getElementById('pauseIcon');
+  const controlRow = document.getElementById('controlRow');
   function resetPauseButtonUI(){
     paused = false;
     pauseIcon.src = './sprites/pause.png';
     pauseBtn.classList.remove('paused');
     pauseBtn.setAttribute('aria-label', 'Pause');
   }
+  function showPauseButton(){ controlRow.classList.remove('hidden'); }
+  function hidePauseButton(){ controlRow.classList.add('hidden'); }
   function togglePause(){
     // Nur waehrend aktiven Spielzustaenden pausierbar
     if(state !== STATE.PLAYING && state !== STATE.SLIDING && state !== STATE.FALLING){
-      // Im READY/OVER Zustand: kein toggle, Button passiv
       return;
     }
     paused = !paused;
@@ -742,6 +744,7 @@ const LONG_RUN = new SpriteAnim({
     resetSpawnSchedule();
     preSpawnWorld();
     resetPauseButtonUI(); // falls vorher pausiert war, Icon zuruecksetzen
+    showPauseButton();    // ab jetzt darf der Spieler pausieren
     state = STATE.PLAYING;
   }
   // Wird beim "ich waere jetzt tot"-Event aufgerufen. Wenn Lives > 0: Life weg, kurze
@@ -777,8 +780,9 @@ const LONG_RUN = new SpriteAnim({
     updateBestDisplay();
     document.getElementById('overText').textContent = m + ' m   ' + (wasBest ? 'new best!' : 'Best: ' + best + ' m');
     document.getElementById('screenOver').classList.remove('hidden');
-    // Pause-Button auf "Pause"-Icon zuruecksetzen (war evtl. auf Play, wenn Spieler pausierte)
+    // Pause-Button im Game-Over verstecken + state zuruecksetzen
     resetPauseButtonUI();
+    hidePauseButton();
     puff(player.x + player.w/2, player.y + player.h/2, 24, true);
   }
 
@@ -1652,20 +1656,65 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
-    // Money + 1up: helles, intensives gruenes Glow-Stack (2 Passes).
-    // Pass 1 = breiter weicher Halo (Blur 18). Pass 2 = engerer Tight-Glow (Blur 8) ueber Pass 1.
-    // Ergibt einen kraeftigen, leuchtenden Rand statt einer dezenten Wolke -- folgt der
-    // Sprite-Alpha-Maske, daher pixel-genau auf der echten Silhouette (kein kreisrunder Halo).
+    // Money + 1up: pixel-perfekte 1px gruene Outline + intensiver Soft-Glow.
+    // Trick: jeder Frame wird zuerst in einen offscreen-Canvas MIT PADDING gerendert,
+    // dann mit shadow auf das Hauptcanvas gezeichnet. Dadurch kann der shadow-Gauss
+    // frei in die Padding-Zone "bleeden" -- kein Clip mehr am Sprite-Frame.
+    // Outline: 4 Schatten-Passes (oben/unten/links/rechts, blur=0, offset=1) auf dem
+    // gepaddeden Canvas -> harte 1-Pixel gruene Kontur an der echten Sprite-Silhouette.
+    // Glow-Layer: 2 Schatten-Passes (blur 24 + blur 10) auf dem gepaddeden Canvas.
     const MONEY_GLOW_COLOR = '#8cf0aa';
+    const GLOW_PAD = 32; // genug Platz fuer Outer-Blur 24 + 1px Outline
+    function ensureSpritePad(sprite){
+      if(!sprite._padCanvas){
+        sprite._padCanvas = document.createElement('canvas');
+        sprite._padCtx = sprite._padCanvas.getContext('2d');
+        sprite._padCtx.imageSmoothingEnabled = false;
+      }
+      const sw = sprite.frameW, sh = sprite.frameH;
+      const tw = sw + GLOW_PAD*2, th = sh + GLOW_PAD*2;
+      if(sprite._padCanvas.width !== tw || sprite._padCanvas.height !== th){
+        sprite._padCanvas.width = tw;
+        sprite._padCanvas.height = th;
+        sprite._padCtx.imageSmoothingEnabled = false;
+      }
+    }
     function drawWithGreenGlow(sprite, time, dx, dy, dw, dh){
-      // Pass 1: weiter Halo
+      if(!sprite.ready) return;
+      ensureSpritePad(sprite);
+      const sw = sprite.frameW, sh = sprite.frameH;
+      const idx = sprite.frameAt(time, true);
+      const pad = sprite._padCanvas;
+      const pCtx = sprite._padCtx;
+      // 1) Aktuellen Frame in padded offscreen rendern (transparenter Rand drumherum)
+      pCtx.clearRect(0, 0, pad.width, pad.height);
+      pCtx.drawImage(sprite.img, idx*sw, 0, sw, sh, GLOW_PAD, GLOW_PAD, sw, sh);
+      // Destination im Spielfeld: gepaddete Canvas mit Skala = dw/sw (sollte = COIN_SCALE sein)
+      const scaleX = dw / sw, scaleY = dh / sh;
+      const destW = pad.width  * scaleX;
+      const destH = pad.height * scaleY;
+      const destX = Math.round(dx - GLOW_PAD * scaleX);
+      const destY = Math.round(dy - GLOW_PAD * scaleY);
+      const dW = Math.round(destW), dH = Math.round(destH);
+      // 2) Soft-Glow Pass 1 (weiter Halo)
       ctx.shadowColor = MONEY_GLOW_COLOR;
-      ctx.shadowBlur  = 18;
-      sprite.draw(ctx, time, dx, dy, dw, dh, true);
-      // Pass 2: enge intensive Kontur (re-draw mit kleinem Blur -> der Glow wird "dichter")
-      ctx.shadowBlur  = 8;
-      sprite.draw(ctx, time, dx, dy, dw, dh, true);
-      ctx.shadowBlur  = 0;
+      ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+      ctx.shadowBlur = 24;
+      ctx.drawImage(pad, destX, destY, dW, dH);
+      // 3) Soft-Glow Pass 2 (tighter, intensiver)
+      ctx.shadowBlur = 10;
+      ctx.drawImage(pad, destX, destY, dW, dH);
+      // 4) Pixel-perfekte 1px Outline -- 4 Richtungs-Shadows, blur=0
+      ctx.shadowBlur = 0;
+      const OUT = Math.max(1, Math.round(scaleX)); // 1.5x -> 2px im Display
+      const dirs = [[-OUT,0],[OUT,0],[0,-OUT],[0,OUT]];
+      for(const [ox, oy] of dirs){
+        ctx.shadowOffsetX = ox;
+        ctx.shadowOffsetY = oy;
+        ctx.drawImage(pad, destX, destY, dW, dH);
+      }
+      // Reset
+      ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; ctx.shadowBlur = 0;
     }
 
     // 1ups -- animiertes Sprite (1.5x), schwebt hoch in der Luft (Default 50px ueber Boden,
