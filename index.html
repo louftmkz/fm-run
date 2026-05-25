@@ -364,28 +364,51 @@ const LONG_RUN = new SpriteAnim({
   // Sobald hier ein Pfad gesetzt wird, laed das Spiel beim Boot das Bild und nutzt es
   // auf der entsprechenden Ebene statt der prozeduralen Form. Bilder werden lazy geladen.
   // Index = Code Level 0..7 (= Ebene -1, 0, 1, 2, 3, 4, 5, 6)
-  // Per-Ebene Coin-SpriteAnims (animierte Spritesheets).
-  // Hitbox bleibt fuer alle Coins gleich (COIN_RADIUS=11), Sprite wird in seiner
-  // nativen Frame-Groesse mittig auf die Coin-Position gerendert -> fair.
+  // Money-SpriteAnims (animierte Spritesheets, 1.5x gerendert wie der Player).
+  // Hitbox ist ein kleiner ~4x4 Block am rechten Sprite-Rand (siehe Coin-Pickup) --
+  // dadurch fuehlen sich rasante Zuege "fairer" an: man catcht das Geld auch beim Streifen.
+  const COIN_SCALE = 1.5;
   const COIN_SPRITE_1 = new SpriteAnim({
-    src: './sprites/coin-1.png',
-    frames: 6,
-    frameW: 14,
-    frameH: 13,
-    fps: 10,
-    loop: true,
-    freezeFrame: 0
+    src: './sprites/coin-1.png', frames: 6, frameW: 14, frameH: 13, fps: 10, loop: true, freezeFrame: 0
   });
-  const LEVEL_COIN_SPRITES = [
-    null, // Code Level 0 = Ebene -1 (Underground)
-    null, // Code Level 1 = Ebene  0 (Gutter)
-    COIN_SPRITE_1, // Code Level 2 = Ebene 1 (Training Room) -- erstes Coin-Design
-    null, // Code Level 3 = Ebene 2 (Night Club)
-    null, // Code Level 4 = Ebene 3 (Battle Ground)
-    null, // Code Level 5 = Ebene 4 (TV Studio)
-    null, // Code Level 6 = Ebene 5 (Theater Stage)
-    null  // Code Level 7 = Ebene 6 (Spaceship)
+  const COIN_SPRITE_STACK = new SpriteAnim({
+    src: './sprites/coin-stack.png', frames: 7, frameW: 15, frameH: 13, fps: 10, loop: true, freezeFrame: 0
+  });
+  const COIN_SPRITE_BAG = new SpriteAnim({
+    src: './sprites/coin-bag.png', frames: 7, frameW: 24, frameH: 25, fps: 10, loop: true, freezeFrame: 0
+  });
+  const COIN_SPRITE_CASE = new SpriteAnim({
+    src: './sprites/coin-case.png', frames: 7, frameW: 30, frameH: 18, fps: 10, loop: true, freezeFrame: 0
+  });
+  const COIN_SPRITE_POT = new SpriteAnim({
+    src: './sprites/coin-pot.png', frames: 7, frameW: 34, frameH: 31, fps: 10, loop: true, freezeFrame: 0
+  });
+  const ONEUP_SPRITE = new SpriteAnim({
+    src: './sprites/coin-1up.png', frames: 8, frameW: 20, frameH: 18, fps: 12, loop: true, freezeFrame: 0
+  });
+  // Money-Kind -> Sprite + Wert
+  const SPRITE_BY_KIND = {
+    coin:  COIN_SPRITE_1,
+    stack: COIN_SPRITE_STACK,
+    bag:   COIN_SPRITE_BAG,
+    case:  COIN_SPRITE_CASE,
+    pot:   COIN_SPRITE_POT
+  };
+  const VALUE_BY_KIND = { coin: 1, stack: 10, bag: 25, case: 50, pot: 100 };
+  // Default-Kind pro Ebene (null = Underground, das per Rarity-Roll seinen Kind bestimmt).
+  // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
+  const COIN_KIND_BY_LEVEL = [
+    null,    // 0 Underground -- random rarity
+    'coin',  // 1 Gutter & Ghetto -- single coin (+1), 3er via coin_chain
+    'coin',  // 2 Training Room  -- single coin (+1)
+    'coin',  // 3 Night Club     -- single coin (+1), 3er via coin_chain
+    'stack', // 4 Battle Ground  -- stack (+10)
+    'bag',   // 5 TV Studio      -- bag (+25)
+    'case',  // 6 Theater Stage  -- case (+50)
+    'pot'    // 7 Spaceship      -- pot (+100)
   ];
+  // Legacy-Mapping: wird nur noch fuer die procedural Fallback-Auswahl gebraucht.
+  const LEVEL_COIN_SPRITES = [null, COIN_SPRITE_1, COIN_SPRITE_1, COIN_SPRITE_1, COIN_SPRITE_STACK, COIN_SPRITE_BAG, COIN_SPRITE_CASE, COIN_SPRITE_POT];
   const LEVEL_OBSTACLE_SPRITES = [
     null, null, null, null, null, null, null, null
   ];
@@ -627,7 +650,8 @@ const LONG_RUN = new SpriteAnim({
     // sodass sie nach kurzer Spielerreise sichtbar reinscrollen statt direkt im Bild
     // zu erscheinen. Das gibt dem Spieler Zeit, sich einzustellen.
     // KEINE Loecher in den Pre-Spawns -- die kommen erst aus dem natuerlichen Schedule.
-    const lvl = 0;
+    const lvl = currentLevel; // pre-spawn auf der Start-Ebene (Training Room = Code 2)
+    const kind = pickMoneyKind(lvl);
     // Erstes Element nach ~5m Scroll, dann ~7.7m Abstand
     const positions = [W + 150, W + 380, W + 610, W + 840];
     for(let i = 0; i < positions.length; i++){
@@ -635,7 +659,7 @@ const LONG_RUN = new SpriteAnim({
       const r = Math.random();
       if(i === 0 || r < 0.4){
         // erstes Element immer Coin -- weicher Einstieg
-        coins.push({x: px, level: lvl});
+        coins.push({x: px, level: lvl, kind});
       } else if(r < 0.75){
         const w = 24 + Math.random()*22;
         const h = 28 + Math.random()*18;
@@ -690,8 +714,45 @@ const LONG_RUN = new SpriteAnim({
   }
 
   // ---------- spawning ----------
+  // Wahlt den Money-Kind fuer einen Spawn auf einer bestimmten Ebene.
+  // Auf Underground (Code Level 0) zufaellig nach Rarity-Tabelle, sonst fix pro Ebene.
+  // Wichtig: "3er coins" wird hier NICHT als kind ausgewaehlt -- das ist ein Multi-Spawn
+  // und wird separat in spawnCoin (fuer Underground) bzw. via coin_chain Pattern realisiert.
+  function pickMoneyKind(lvl){
+    if(lvl === 0){
+      // Underground: re-normalize ueber single/stack/bag/case/pot (ohne 3er, sum 80%)
+      // Original: single 25, 3er 20, stack 18, bag 15, case 12, pot 10
+      // Ohne 3er, normalized: 25/80=31.25, 18/80=22.5, 15/80=18.75, 12/80=15, 10/80=12.5
+      const r = Math.random();
+      if(r < 0.3125)      return 'coin';
+      else if(r < 0.5375) return 'stack';
+      else if(r < 0.7250) return 'bag';
+      else if(r < 0.8750) return 'case';
+      else                return 'pot';
+    }
+    return COIN_KIND_BY_LEVEL[lvl] || 'coin';
+  }
+  // Spawnt 3 Single-Coins in einer Reihe (selbe Ebene, ~25px Abstand).
+  function spawnCoinChain(lvl){
+    let x = W + 20;
+    for(let i = 0; i < 3; i++){
+      coins.push({ x, level: lvl, kind: 'coin' });
+      x += 25;
+    }
+  }
   function spawnCoin(lvl){
-    coins.push({x: W + 20, level: lvl});
+    if(lvl === 0){
+      // Underground: vollstaendige Rarity-Tabelle inkl. 3er-Folge (20%)
+      const r = Math.random();
+      if(r < 0.25)       { coins.push({ x: W + 20, level: 0, kind: 'coin'  }); }
+      else if(r < 0.45)  { spawnCoinChain(0); }
+      else if(r < 0.63)  { coins.push({ x: W + 20, level: 0, kind: 'stack' }); }
+      else if(r < 0.78)  { coins.push({ x: W + 20, level: 0, kind: 'bag'   }); }
+      else if(r < 0.90)  { coins.push({ x: W + 20, level: 0, kind: 'case'  }); }
+      else               { coins.push({ x: W + 20, level: 0, kind: 'pot'   }); }
+      return;
+    }
+    coins.push({ x: W + 20, level: lvl, kind: pickMoneyKind(lvl) });
   }
   // Cross-Level Konflikt-Checks: verhindert vertikal gestapelte Rampen/Luecken.
   // overlap = [x, x+w] eines neuen Spawns kollidiert mit Element der adjacenten Ebene.
@@ -709,7 +770,8 @@ const LONG_RUN = new SpriteAnim({
     if(hasOverlapOnLevel(ramps, l => l === lvl - 1, x, w)) return;
     gaps.push({x, w, level: lvl});
     if(Math.random() < 0.20){
-      coins.push({ x: x + w/2, level: lvl, yOffset: 110 });
+      // Air-Coin ueber der Luecke -- Kind nach Ebenen-Regel
+      coins.push({ x: x + w/2, level: lvl, yOffset: 110, kind: pickMoneyKind(lvl) });
     }
   }
   function spawnRamp(lvl){
@@ -847,7 +909,9 @@ const LONG_RUN = new SpriteAnim({
     gap_obstacle:          [22, 22,  6, 22, 22, 22, 22, 28],
     obstacle_gap_obstacle: [18, 18,  4, 18, 18, 18, 18, 22],
     gap_coin_obstacle:     [20, 20,  5, 20, 20, 20, 20,  0],
-    coin_chain:            [18, 18, 12, 18, 18, 18, 18,  0],
+    // 3er-Reihe coins: NUR noch auf Gutter & Ghetto (Code 1) + Night Club (Code 3).
+    // Auf Underground (Code 0) ist die 3er-Folge in spawnCoin inline integriert (20% Rate).
+    coin_chain:            [ 0, 18,  0, 18,  0,  0,  0,  0],
     triple_gaps:           [18, 18,  4, 18, 18, 18, 18, 25],
     ramp_gap:              [16, 16,  4, 16, 16, 16, 16,  0],
     // gap_aircoin: Loch mit Coin in der Luft daruber (nur via LonG-Apex erreichbar).
@@ -913,7 +977,11 @@ const LONG_RUN = new SpriteAnim({
         ramps.push({ x, w, level: targetLvl });
         curX += w;
       } else if(op.type === 'coin'){
-        const c = { x, level: targetLvl };
+        // Kind aus Ebene ableiten -- coin_chain Pattern erzwingt 'coin' (3er-Reihe ist immer Singles)
+        let kind;
+        if(name === 'coin_chain') kind = 'coin';
+        else kind = pickMoneyKind(targetLvl);
+        const c = { x, level: targetLvl, kind };
         if(op.dy != null) c.yOffset = op.dy; // optionale Hoehe ueber dem Boden (Standard: COIN_Y_OFFSET)
         coins.push(c);
         curX += COIN_RADIUS * 2;
@@ -1297,18 +1365,28 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
+    // Hitbox-Konvention fuer Money-Pickups: kleines ~4x6 Pixel-Fenster am rechten
+    // Sprite-Rand. So fuehlen sich rasante Zuege "fairer" an -- man catcht das Geld
+    // auch beim Streifen, ohne dass es bei genauem Zentrieren prellt.
+    const MONEY_HIT_R = 3; // halbe Hitbox-Breite
+    function moneyHitX(item, spriteW){
+      return item.x + spriteW/2 - MONEY_HIT_R; // 3px Buffer ab rechten Sprite-Rand
+    }
+
     // ---------- 1up-Pickup ----------
-    // Nur Shizzo ist der Sammler -- 1ups verhalten sich wie Coins:
-    // andere Charaktere laufen ohne Effekt durch das 1up hindurch.
+    // Nur Shizzo ist der Sammler -- 1ups verhalten sich wie Money-Items.
     if(state === STATE.PLAYING && activeCharacter === 'shizzo'){
       for(let i = oneUps.length - 1; i >= 0; i--){
         const u = oneUps[i];
         if(u.level !== currentLevel) continue;
         const uYOff = u.yOffset != null ? u.yOffset : 50;
         const uy = levelFloorY(u.level) - uYOff;
-        const r = 14;
-        if(u.x + r > player.x && u.x - r < player.x + player.w &&
-           uy + r > player.y && uy - r < player.y + player.h){
+        const sw = ONEUP_SPRITE.frameW * COIN_SCALE;
+        const sh = ONEUP_SPRITE.frameH * COIN_SCALE;
+        const hitX = moneyHitX(u, sw);
+        // Hitbox: schmal rechts, voll vertikal (sh*0.6 fuer mehr Toleranz beim Sprung)
+        if(hitX + MONEY_HIT_R > player.x && hitX - MONEY_HIT_R < player.x + player.w &&
+           uy + sh*0.5 > player.y && uy - sh*0.5 < player.y + player.h){
           if(lives < MAX_LIVES){
             lives++;
             updateLivesDisplay();
@@ -1326,17 +1404,23 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
-    // ---------- Coin-Pickup ----------
-    // Nur Shizzo kann Coins einsammeln. Bei anderen scrollen die Coins einfach durch.
+    // ---------- Money-Pickup ----------
+    // Nur Shizzo kann Money einsammeln. Bei anderen scrollen die Items einfach durch.
+    // Wert + Sprite folgen aus c.kind (coin/stack/bag/case/pot).
     if(state === STATE.PLAYING && activeCharacter === 'shizzo'){
       for(let i=coins.length-1;i>=0;i--){
         const c = coins[i];
         if(c.level !== currentLevel) continue;
         const yOff = c.yOffset != null ? c.yOffset : COIN_Y_OFFSET;
         const cy = levelFloorY(c.level) - yOff;
-        if(c.x + COIN_RADIUS > player.x && c.x - COIN_RADIUS < player.x + player.w &&
-           cy + COIN_RADIUS > player.y && cy - COIN_RADIUS < player.y + player.h){
-          const value = COIN_VALUES[c.level] || 0;
+        const kind = c.kind || 'coin';
+        const sa = SPRITE_BY_KIND[kind] || COIN_SPRITE_1;
+        const sw = sa.frameW * COIN_SCALE;
+        const sh = sa.frameH * COIN_SCALE;
+        const hitX = moneyHitX(c, sw);
+        if(hitX + MONEY_HIT_R > player.x && hitX - MONEY_HIT_R < player.x + player.w &&
+           cy + sh*0.5 > player.y && cy - sh*0.5 < player.y + player.h){
+          const value = VALUE_BY_KIND[kind] || 0;
           coinsTotal += value;
           try { localStorage.setItem('fmrun_coins', String(coinsTotal)); } catch(e){}
           document.getElementById('coinsValue').textContent = coinsTotal.toLocaleString('de-DE');
@@ -1505,36 +1589,26 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
-    // 1ups -- pinker Pulskreis mit "1UP" innen, schwebt hoch in der Luft (Default 50px ueber Boden,
+    // 1ups -- animiertes Sprite (1.5x), schwebt hoch in der Luft (Default 50px ueber Boden,
     // im ramp_oneup Pattern aber 228px ueber dem Top-Floor -- nur via Boost-Rampe erreichbar)
-    const oneUpPulse = 1 + Math.sin(timeAlive * 8) * 0.1;
     for(const u of oneUps){
       if(u.x < -30 || u.x > W + 30) continue;
       const uYOff = u.yOffset != null ? u.yOffset : 50;
       const uy = levelFloorY(u.level) - uYOff;
       if(uy < -30 || uy > H + 30) continue;
-      const r = 16 * oneUpPulse;
-      // Glow
-      ctx.fillStyle = 'rgba(255, 77, 141, 0.25)';
-      ctx.beginPath(); ctx.arc(u.x, uy, r * 1.6, 0, Math.PI*2); ctx.fill();
-      // Aussenring
-      ctx.fillStyle = '#a01838';
-      ctx.beginPath(); ctx.arc(u.x, uy, r, 0, Math.PI*2); ctx.fill();
-      // Innenfuellung
-      ctx.fillStyle = '#ff4d8d';
-      ctx.beginPath(); ctx.arc(u.x, uy, r - 2.5, 0, Math.PI*2); ctx.fill();
-      // Highlight
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.beginPath(); ctx.arc(u.x - 4, uy - 4, r * 0.32, 0, Math.PI*2); ctx.fill();
-      // "1UP"-Text
-      ctx.fillStyle = '#fff';
-      ctx.font = '900 11px -apple-system, BlinkMacSystemFont, Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('1UP', u.x, uy + 0.5);
+      const sw = ONEUP_SPRITE.frameW * COIN_SCALE;
+      const sh = ONEUP_SPRITE.frameH * COIN_SCALE;
+      if(ONEUP_SPRITE.ready){
+        ONEUP_SPRITE.draw(ctx, timeAlive, u.x - sw/2, uy - sh/2, sw, sh, true);
+      } else {
+        // Fallback: pinker Kreis
+        ctx.fillStyle = '#ff4d8d';
+        ctx.beginPath(); ctx.arc(u.x, uy, 14, 0, Math.PI*2); ctx.fill();
+      }
     }
 
-    // Coins -- Goldkreis mit Highlight, leichte Wackel-Animation (Game-Time, friert bei Pause)
+    // Money-Items (Coin / Stack / Bag / Case / Pot) -- animierte Sprites, 1.5x gerendert.
+    // c.kind bestimmt Sprite + Wert (siehe SPRITE_BY_KIND / VALUE_BY_KIND).
     // Werden auf allen Etagen gerendert (Lebendigkeit), interagieren aber nur mit dem Spieler
     // wenn er auf der gleichen Etage UND als Shizzo unterwegs ist.
     const coinPulse = Math.sin(timeAlive * 6);
@@ -1542,15 +1616,14 @@ const LONG_RUN = new SpriteAnim({
       const yOff = c.yOffset != null ? c.yOffset : COIN_Y_OFFSET;
       const cy = levelFloorY(c.level) - yOff + coinPulse * 1.5;
       if(cy < -30 || cy > H + 30) continue;
-      const spriteAnim = LEVEL_COIN_SPRITES[c.level];
-      if(spriteAnim && spriteAnim.ready){
-        // Animiertes Sprite in nativer Frame-Groesse, mittig auf Coin-Position.
-        // Hitbox (COIN_RADIUS) bleibt unveraendert -> faire/uniforme Pickup-Reichweite.
-        const sw = spriteAnim.frameW;
-        const sh = spriteAnim.frameH;
-        spriteAnim.draw(ctx, timeAlive, c.x - sw/2, cy - sh/2, sw, sh, true);
+      const kind = c.kind || 'coin';
+      const sa = SPRITE_BY_KIND[kind] || COIN_SPRITE_1;
+      if(sa.ready){
+        const sw = sa.frameW * COIN_SCALE;
+        const sh = sa.frameH * COIN_SCALE;
+        sa.draw(ctx, timeAlive, c.x - sw/2, cy - sh/2, sw, sh, true);
       } else {
-        // Procedural: Goldkreis mit Highlight
+        // Procedural Fallback: Goldkreis mit Highlight
         ctx.fillStyle = '#cc8a00';
         ctx.beginPath(); ctx.arc(c.x, cy, COIN_RADIUS, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = '#ffcc33';
