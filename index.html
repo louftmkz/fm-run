@@ -301,7 +301,14 @@
   const FORCE_FALL_DISTANCE = 200; // Meter auf einer Ebene bis Force-Fall ausgeloest wird
   let slideProgress = 0;        // [-1..0..1] waehrend SLIDING/FALLING
   let activeRamp = null;        // Referenz auf die gerade befahrene Schraege (fuer geometrische Slide-Bindung)
-  function levelGap(){ return H * 0.28; }
+  // Rampen-Geometrie ist auf einen festen Winkel von ~58° gelockt (Goldener Schnitt 8:5).
+  // Sprite-Konvention: 120 (Breite) x 192 (Hoehe) Pixel.
+  // -> levelGap = 192 px ist Hoehe einer Etage = Hoehe einer Rampe.
+  // -> RAMP_WIDTH = 120 px ist Breite der Rampe.
+  // tan(Winkel) = 192/120 = 1.6 -> Winkel = atan(1.6) = 58.0 Grad.
+  const LEVEL_GAP = 192;
+  const RAMP_WIDTH = 120;
+  function levelGap(){ return LEVEL_GAP; }
   function levelFloorY(k){
     // Bildschirm-Y der Etagen-Oberflaeche von Level k.
     // currentLevel sitzt immer auf H*0.65; waehrend SLIDING shifted die Welt nach unten.
@@ -787,7 +794,7 @@ const LONG_RUN = new SpriteAnim({
         const h = 28 + Math.random()*18;
         obstacles.push({x: px, w, h, type:'low', level: lvl});
       } else {
-        ramps.push({x: px, w: 130, level: lvl});
+        ramps.push({x: px, w: RAMP_WIDTH, level: lvl});
       }
     }
   }
@@ -904,7 +911,7 @@ const LONG_RUN = new SpriteAnim({
     }
   }
   function spawnRamp(lvl){
-    const w = 110 + Math.random()*40;
+    const w = RAMP_WIDTH; // fix 120 px, lockt 58 Grad Winkel
     const x = W + 20;
     // Skip wenn auf der Ebene darunter (lvl-1) oder darueber (lvl+1) bereits eine Rampe ist
     // -> kein direktes Stapeln, sequentiell ist OK (verschiedene x-Positionen)
@@ -947,12 +954,12 @@ const LONG_RUN = new SpriteAnim({
     // LonG -> Lou mid-air
     gap_ramp: [
       { type: 'gap',                   dx:   0, w: 100 },
-      { type: 'ramp',                  dx: 100, w: 130 }
+      { type: 'ramp',                  dx: 100, w: 120 }
     ],
     // Sasch -> Lou
     obstacle_ramp: [
       { type: 'obstacle', kind: 'low', dx:  0 },
-      { type: 'ramp',                  dx: 60,  w: 130 }
+      { type: 'ramp',                  dx: 60,  w: 120 }
     ],
     // Sasch-only
     triple_obstacles: [
@@ -991,7 +998,7 @@ const LONG_RUN = new SpriteAnim({
     ],
     // Lou -> LonG nach Aufstieg: Rampe auf Lvl k, Loch auf Lvl k+1 sequentiell danach
     ramp_gap: [
-      { type: 'ramp',                  dx:   0, w: 130 },
+      { type: 'ramp',                  dx:   0, w: 120 },
       { type: 'gap',                   dx: 100, w: 100, lvlOff: 1 }
     ],
     // LonG springt ueber Loch, mid-air auf Shizzo wechseln um die Air-Coin zu greifen.
@@ -1005,20 +1012,20 @@ const LONG_RUN = new SpriteAnim({
     // dy = Schwebehoehe ueber Top-Floor (228px = "Etage 7"-Position),
     // dx Abstand zur Rampe damit der Spieler durch den Bogen "hineinfliegt".
     top_ramp_alone: [
-      { type: 'ramp', dx:  0, w: 130 }
+      { type: 'ramp', dx:  0, w: 120 }
     ],
     top_ramp_coin: [
-      { type: 'ramp', dx:  0, w: 130 },
+      { type: 'ramp', dx:  0, w: 120 },
       { type: 'coin', dx: 50, dy: 228 }
     ],
     top_arc_coins: [
-      { type: 'ramp', dx:  0, w: 130 },
+      { type: 'ramp', dx:  0, w: 120 },
       { type: 'coin', dx: 30, dy: 228 },
       { type: 'coin', dx: 25, dy: 228 },
       { type: 'coin', dx: 25, dy: 228 }
     ],
     ramp_oneup: [
-      { type: 'ramp',  dx:  0, w: 130 },
+      { type: 'ramp',  dx:  0, w: 120 },
       { type: 'oneup', dx: 80,         dy: 228 }
     ],
     // gap_air_oneup: Loch + 1up in der Luft (LonG-Sprung-Apex). Nur via Force-Spawn auf Ebene 2-5.
@@ -1067,7 +1074,7 @@ const LONG_RUN = new SpriteAnim({
     const last = rightmostEntityInfoForLevel(lvl);
     const safeX = Math.max(W + 20, (last.x === -Infinity ? W + 20 : last.x + 60));
     if(lvl === 0){
-      ramps.push({ x: safeX, w: 130, level: 0, forced: true });
+      ramps.push({ x: safeX, w: 120, level: 0, forced: true });
       gaps.push({ x: safeX + 130 + 100, w: FORCE_GAP_W, level: 0, forced: true });
     } else {
       gaps.push({ x: safeX, w: FORCE_GAP_W, level: lvl, forced: true });
