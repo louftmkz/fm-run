@@ -77,6 +77,13 @@
   .lives{display:flex;align-items:center;gap:5px;flex:1;justify-content:flex-end}
   .heart{width:22px;height:22px;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff5566"><path d="M12 21s-7-4.5-7-11a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 6.5-7 11-7 11z"/></svg>') center/contain no-repeat;opacity:.22;transition:opacity .25s ease,transform .25s ease}
   .heart.full{opacity:1;transform:scale(1.05)}
+  /* Life-loss feedback: Lives-Container schuettelt 5x in ~400ms */
+  @keyframes lifeShake{
+    0%,100%{transform:translateX(0)}
+    10%,30%,50%,70%,90%{transform:translateX(-4px)}
+    20%,40%,60%,80%{transform:translateX(4px)}
+  }
+  .lives.shake{animation:lifeShake .4s ease-in-out}
   .center{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:0 24px}
   .title{font-family:var(--pixel);font-size:36px;letter-spacing:2px;line-height:1.15;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 14px}
   .sub{color:var(--ink-dim);margin:0 0 28px;font-size:9px;line-height:1.6}
@@ -309,6 +316,31 @@
   }
   updateLivesDisplay();
 
+  // ---------- Life-Loss Feedback ----------
+  // Branchen-Standard-Combo bei Life-Loss (wie Mario/Sonic/Mega Man):
+  //  * Hit-Pause: 400ms Game-Freeze (update() skip) -- der Treffer wirkt wuchtig
+  //  * Player-Blink: 5x sichtbar/unsichtbar waehrend Freeze
+  //  * Screen-Flash: roter Vollbild-Overlay, der pulsiert + ausfadet
+  //  * Heart-Shake: das Lives-UI schuettelt sich
+  //  * Danach 1.5s Invincibility-Flicker wie bisher
+  // Real-Time basiert (performance.now()) damit Animation auch waehrend Game-Freeze laeuft.
+  let hitPauseRealUntil = 0;   // performance.now() Stempel: bis wann update() pausiert
+  let hitFlashRealStart = 0;   // performance.now() Stempel: wann der Flash startet
+  let hitFlashRealUntil = 0;   // performance.now() Stempel: wann der Flash endet
+  function triggerLifeLossFeedback(){
+    const now = performance.now();
+    hitPauseRealUntil = now + 400;
+    hitFlashRealStart = now;
+    hitFlashRealUntil = now + 500;
+    // Heart-Shake -- CSS-Klasse 400ms an, dann wieder ab
+    const livesEl = document.getElementById('lives');
+    livesEl.classList.remove('shake'); // reflow um Re-Trigger zu erlauben
+    void livesEl.offsetWidth;
+    livesEl.classList.add('shake');
+    setTimeout(() => livesEl.classList.remove('shake'), 500);
+  }
+  function isHitPaused(){ return performance.now() < hitPauseRealUntil; }
+
   // ---------- Sprite-System (generisch, fuer Helden-Animationen) ----------
   // Wiederverwendbar fuer weitere Helden / Animations-States (jump, slide, idle).
   // Charakter haengt eine SpriteAnim-Instanz an seine Definition; im Render wird
@@ -398,9 +430,9 @@ const LONG_RUN = new SpriteAnim({
   // auf der entsprechenden Ebene statt der prozeduralen Form. Bilder werden lazy geladen.
   // Index = Code Level 0..7 (= Ebene -1, 0, 1, 2, 3, 4, 5, 6)
   // Money-SpriteAnims (animierte Spritesheets, 1.5x gerendert wie der Player).
-  // Hitbox ist ein kleiner ~4x4 Block am rechten Sprite-Rand (siehe Coin-Pickup) --
-  // dadurch fuehlen sich rasante Zuege "fairer" an: man catcht das Geld auch beim Streifen.
+  // Hitbox = volles gerendertes Sprite (1.5x native), AABB.
   const COIN_SCALE = 1.5;
+  const ONEUP_SCALE = 2.0; // 1UP-Sprite eigener Scale -- groesser als die Coin-Family
   const COIN_SPRITE_1 = new SpriteAnim({
     src: './sprites/coin-1.png', frames: 6, frameW: 14, frameH: 13, fps: 10, loop: true, freezeFrame: 0
   });
@@ -754,6 +786,7 @@ const LONG_RUN = new SpriteAnim({
       lives--;
       updateLivesDisplay();
       invincibleUntil = timeAlive + 1.5;
+      triggerLifeLossFeedback();  // Hit-Pause + Flash + Heart-Shake (siehe oben)
       // Zustand auf "lebt-und-laeuft" zuruecksetzen -- egal aus welcher Situation
       state = STATE.PLAYING;
       slideProgress = 0;
@@ -1449,8 +1482,8 @@ const LONG_RUN = new SpriteAnim({
         if(u.level !== currentLevel) continue;
         const uYOff = u.yOffset != null ? u.yOffset : 50;
         const uy = levelFloorY(u.level) - uYOff;
-        const sw = ONEUP_SPRITE.frameW * COIN_SCALE;
-        const sh = ONEUP_SPRITE.frameH * COIN_SCALE;
+        const sw = ONEUP_SPRITE.frameW * ONEUP_SCALE;
+        const sh = ONEUP_SPRITE.frameH * ONEUP_SCALE;
         // AABB: gerendertes Sprite vs Player-Box
         if(u.x + sw/2 > player.x && u.x - sw/2 < player.x + player.w &&
            uy + sh/2 > player.y && uy - sh/2 < player.y + player.h){
@@ -1724,8 +1757,8 @@ const LONG_RUN = new SpriteAnim({
       const uYOff = u.yOffset != null ? u.yOffset : 50;
       const uy = levelFloorY(u.level) - uYOff;
       if(uy < -30 || uy > H + 30) continue;
-      const sw = ONEUP_SPRITE.frameW * COIN_SCALE;
-      const sh = ONEUP_SPRITE.frameH * COIN_SCALE;
+      const sw = ONEUP_SPRITE.frameW * ONEUP_SCALE;
+      const sh = ONEUP_SPRITE.frameH * ONEUP_SCALE;
       if(ONEUP_SPRITE.ready){
         drawWithGreenGlow(ONEUP_SPRITE, timeAlive, u.x - sw/2, uy - sh/2, sw, sh);
       } else {
@@ -1761,12 +1794,31 @@ const LONG_RUN = new SpriteAnim({
     }
 
     // player
-    // Spieler -- Flicker-Animation waehrend Unverwundbarkeit nach Life-Loss
-    if(timeAlive < invincibleUntil){
+    // Spieler -- 2-stufiges Life-Loss Feedback:
+    //   1) Waehrend Hit-Pause (~400ms): 5x sichtbar/unsichtbar Blink (real-time)
+    //   2) Danach Standard-Flicker fuer 1.5s Invincibility (game-time)
+    const nowMs = performance.now();
+    if(nowMs < hitPauseRealUntil){
+      // 5 Blink-Zyklen ueber 400ms -> 10 Phasen a 40ms
+      const elapsed = nowMs - hitFlashRealStart;
+      const phase = Math.floor(elapsed / 40) % 2;
+      ctx.globalAlpha = phase === 0 ? 1 : 0.0;
+    } else if(timeAlive < invincibleUntil){
       ctx.globalAlpha = 0.35 + 0.65 * Math.abs(Math.sin(timeAlive * 22));
     }
     drawPlayer(player);
     ctx.globalAlpha = 1;
+
+    // Screen-Flash Overlay (rot, pulsiert 5x, fadet aus). Real-Time, laeuft auch waehrend Hit-Pause.
+    if(nowMs < hitFlashRealUntil){
+      const total = hitFlashRealUntil - hitFlashRealStart;
+      const t = (nowMs - hitFlashRealStart) / total;        // 0..1
+      const fade = 1 - t;                                    // linear fade
+      const pulse = Math.abs(Math.sin(t * Math.PI * 5));     // 5 Peaks
+      const opacity = fade * pulse * 0.55;
+      ctx.fillStyle = `rgba(255, 70, 90, ${opacity})`;
+      ctx.fillRect(0, 0, W, H);
+    }
 
     // Coin-Pickup-Popups ("+1", "+25", ...) -- floaten nach oben, faden aus
     ctx.font = '12px "Press Start 2P", ui-monospace, monospace';
@@ -1872,8 +1924,8 @@ const LONG_RUN = new SpriteAnim({
     let dt = (t - lastT)/1000;
     lastT = t;
     if(dt > 0.05) dt = 0.05; // clamp big stalls
-    // Pause: update einfrieren, draw laeuft weiter (Sprites bleiben sichtbar)
-    if(!paused) update(dt);
+    // Pause oder Hit-Pause: update einfrieren, draw laeuft weiter (Hit-Flash bleibt sichtbar)
+    if(!paused && !isHitPaused()) update(dt);
     draw();
     requestAnimationFrame(frame);
   }
