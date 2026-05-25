@@ -13,6 +13,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
 <script>
   if ('serviceWorker' in navigator) {
@@ -27,12 +28,15 @@
     --bg-1:#0f1530;
     --accent:#ffcc33;
     --accent-2:#ff4d8d;
+    --money:#5cdc8c;        /* gruener Glow fuer Money-Sprites + Shizzo-Verbindung */
+    --money-soft:#5cdc8c80; /* halbtransparent fuer dezente Outlines */
     --ink:#e8ecff;
     --ink-dim:#8993b8;
     --danger:#ff5566;
+    --pixel:'Press Start 2P',ui-monospace,'Courier New',monospace;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:none}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:var(--pixel);-webkit-tap-highlight-color:transparent;user-select:none;touch-action:none}
   /* Mobile-only Layout: auf Desktop wird das Spielfeld auf Phone-Aspect (max 430px) zentriert.
      Auf Mobile fuellt es weiterhin den ganzen Bildschirm. */
   body{background:#050714}
@@ -40,33 +44,48 @@
   #gamearea{flex:1;position:relative;min-height:0;overflow:hidden}
   canvas{display:block;width:100%;height:100%;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 70%)}
   .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
-  .charnav{display:flex;flex:0 0 122px;padding:10px 10px 0 10px;gap:8px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
+  /* Bottom-Nav: Charakter-Buttons + darunter eine kleine Control-Row (Pause/Play).
+     Hoehe leicht erhoeht damit Control-Row daumenfreundlich sitzt. */
+  .charnav{display:flex;flex-direction:column;flex:0 0 168px;padding:10px 10px 0 10px;gap:8px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
+  .charrow{display:flex;gap:8px}
   .charslot{flex:1;display:flex;flex-direction:column;gap:4px;align-items:stretch;min-width:0}
   .charbtn{height:80px;border-radius:6px;border:2px solid rgba(255,255,255,0.22);background:transparent;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;display:block;position:relative;padding:0;overflow:hidden}
   .charbtn img{image-rendering:pixelated;image-rendering:crisp-edges;display:block;pointer-events:none;position:absolute}
   .charbtn .face{width:50px;height:50px;top:50%;left:50%;transform:translate(-50%,-50%)}
   .charbtn .icon{width:16px;height:16px;bottom:7px;right:7px}
-  .charname{height:14px;line-height:14px;text-align:center;font-family:'Press Start 2P',system-ui,sans-serif;font-size:9px;color:rgba(255,255,255,0.55);text-shadow:0 1px 0 rgba(0,0,0,0.7);letter-spacing:.5px;transition:color .12s ease,text-shadow .12s ease;overflow:hidden;white-space:nowrap}
+  .charname{height:14px;line-height:14px;text-align:center;font-family:var(--pixel);font-size:9px;color:rgba(255,255,255,0.55);text-shadow:0 1px 0 rgba(0,0,0,0.7);letter-spacing:.5px;transition:color .12s ease,text-shadow .12s ease;overflow:hidden;white-space:nowrap}
   .charbtn.active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--accent)}
   .charbtn:active{transform:scale(.95)}
   .charbtn.active{border-color:var(--accent);transform:scale(1.04);box-shadow:0 0 18px rgba(255,204,51,0.65),inset 0 0 0 1px rgba(255,204,51,0.45)}
-  .top{display:flex;justify-content:space-between;align-items:center;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));font-weight:700;letter-spacing:.5px;gap:12px}
+  /* Shizzo = der Money-Sammler -> gruene Outline (default + active glow), visuelle Verbindung zu den Money-Sprites */
+  .charbtn[data-char="shizzo"]{border-color:rgba(92,220,140,0.45)}
+  .charbtn[data-char="shizzo"].active{border-color:var(--money);box-shadow:0 0 18px rgba(92,220,140,0.7),inset 0 0 0 1px rgba(92,220,140,0.55)}
+  .charbtn[data-char="shizzo"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--money)}
+  /* Control-Row (Pause/Play) -- daumen-freundlich, rechts mit Padding zum Rand */
+  .controlrow{display:flex;justify-content:flex-end;padding:0 4px}
+  .ctrlbtn{pointer-events:auto;width:48px;height:38px;border:2px solid rgba(255,255,255,0.22);background:transparent;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;padding:0}
+  .ctrlbtn img{image-rendering:pixelated;image-rendering:crisp-edges;width:18px;height:18px;display:block;pointer-events:none}
+  .ctrlbtn:active{transform:scale(.94)}
+  .ctrlbtn.paused{border-color:var(--accent);box-shadow:0 0 12px rgba(255,204,51,0.55)}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));letter-spacing:.5px;gap:12px}
   .charnav{padding-bottom:max(12px,env(safe-area-inset-bottom))}
-  .score{font-variant-numeric:tabular-nums;font-size:22px;flex:1;text-align:left}
-  .coins{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-size:22px;flex:1;justify-content:center}
+  .scoreCol{display:flex;flex-direction:column;gap:4px;flex:1;text-align:left}
+  .score{font-variant-numeric:tabular-nums;font-size:14px;line-height:1;color:var(--ink)}
+  .best{font-variant-numeric:tabular-nums;font-size:7px;line-height:1;color:var(--ink-dim);letter-spacing:.5px}
+  .coins{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-size:14px;flex:1;justify-content:center}
   .coin-dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(255,204,51,0.5)}
   .lives{display:flex;align-items:center;gap:5px;flex:1;justify-content:flex-end}
   .heart{width:22px;height:22px;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff5566"><path d="M12 21s-7-4.5-7-11a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 6.5-7 11-7 11z"/></svg>') center/contain no-repeat;opacity:.22;transition:opacity .25s ease,transform .25s ease}
   .heart.full{opacity:1;transform:scale(1.05)}
   .center{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:0 24px}
-  .title{font-size:64px;font-weight:900;letter-spacing:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 8px}
-  .sub{color:var(--ink-dim);margin:0 0 28px;font-size:16px}
-  .btn{pointer-events:auto;border:0;border-radius:999px;padding:14px 28px;font-size:18px;font-weight:800;letter-spacing:.5px;background:var(--accent);color:#1a1a1a;cursor:pointer;box-shadow:0 8px 24px rgba(255,204,51,.25);transition:transform .08s ease}
+  .title{font-family:var(--pixel);font-size:36px;letter-spacing:2px;line-height:1.15;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 14px}
+  .sub{color:var(--ink-dim);margin:0 0 28px;font-size:9px;line-height:1.6}
+  .btn{pointer-events:auto;border:0;border-radius:8px;padding:14px 22px;font-family:var(--pixel);font-size:12px;letter-spacing:1px;background:var(--accent);color:#1a1a1a;cursor:pointer;box-shadow:0 8px 24px rgba(255,204,51,.25);transition:transform .08s ease}
   .btn:active{transform:scale(.96)}
-  .hint{color:var(--ink-dim);margin-top:14px;font-size:13px}
+  .hint{color:var(--ink-dim);margin-top:14px;font-size:8px;line-height:1.6}
   .hidden{display:none !important}
   .gameover .title{background:linear-gradient(90deg,var(--danger),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:12px;margin-left:8px;vertical-align:middle}
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:8px;margin-left:8px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -76,7 +95,10 @@
 
     <div class="ui">
       <div class="top">
-        <div class="score" id="score">0 m</div>
+        <div class="scoreCol">
+          <div class="score" id="score">0 m</div>
+          <div class="best" id="best">Best 0 m</div>
+        </div>
         <div class="coins" id="coins">
           <span class="coin-dot"></span>
           <span id="coinsValue">0</span>
@@ -90,48 +112,55 @@
 
       <div class="center" id="screenStart">
         <h1 class="title">FM RUN</h1>
-        <p class="sub">Tippe einen Helden unten, um zu wechseln</p>
+        <p class="sub">Tippe einen Helden<br>unten zum Wechseln</p>
         <button class="btn" id="btnStart">Spielen</button>
         <div class="hint">v0.2 prototype</div>
       </div>
 
       <div class="center hidden gameover" id="screenOver">
-        <h1 class="title">GAME OVER</h1>
+        <h1 class="title">GAME<br>OVER</h1>
         <p class="sub" id="overText">0 m</p>
         <button class="btn" id="btnRestart">Nochmal</button>
-        <div class="hint">Leertaste / Tap zum Neustart</div>
+        <div class="hint">Tap zum<br>Neustart</div>
       </div>
     </div>
   </div>
 
   <div class="charnav">
-    <div class="charslot">
-      <button class="charbtn active" data-char="lou" style="--char-color:#ffd95c" aria-label="Lou">
-        <img class="face" src="./sprites/button-lou.png" alt="" width="50" height="50" fetchpriority="high" decoding="sync">
-        <img class="icon" src="./sprites/icon-lou.png?v=2" alt="" width="16" height="16" fetchpriority="high" decoding="sync">
-      </button>
-      <div class="charname">Lou</div>
+    <div class="charrow">
+      <div class="charslot">
+        <button class="charbtn active" data-char="lou" style="--char-color:#ffd95c" aria-label="Lou">
+          <img class="face" src="./sprites/button-lou.png" alt="" width="50" height="50" fetchpriority="high" decoding="sync">
+          <img class="icon" src="./sprites/icon-lou.png?v=2" alt="" width="16" height="16" fetchpriority="high" decoding="sync">
+        </button>
+        <div class="charname">Lou</div>
+      </div>
+      <div class="charslot">
+        <button class="charbtn" data-char="sasch" style="--char-color:#86efac" aria-label="Sasch">
+          <img class="face" src="./sprites/button-sasch.png" alt="" width="50" height="50" fetchpriority="high" decoding="sync">
+          <img class="icon" src="./sprites/icon-sasch.png?v=2" alt="" width="16" height="16" fetchpriority="high" decoding="sync">
+        </button>
+        <div class="charname">Sasch</div>
+      </div>
+      <div class="charslot">
+        <button class="charbtn" data-char="shizzo" style="--char-color:#fca5a5" aria-label="Shizzo">
+          <img class="face" src="./sprites/button-shizzo.png" alt="" width="50" height="50" fetchpriority="high" decoding="sync">
+          <img class="icon" src="./sprites/icon-shizzo.png?v=2" alt="" width="16" height="16" fetchpriority="high" decoding="sync">
+        </button>
+        <div class="charname">Shizzo</div>
+      </div>
+      <div class="charslot">
+        <button class="charbtn" data-char="long" style="--char-color:#93c5fd" aria-label="LonG">
+          <img class="face" src="./sprites/button-long.png" alt="" width="50" height="50" fetchpriority="high" decoding="sync">
+          <img class="icon" src="./sprites/icon-long.png?v=2" alt="" width="16" height="16" fetchpriority="high" decoding="sync">
+        </button>
+        <div class="charname">LonG</div>
+      </div>
     </div>
-    <div class="charslot">
-      <button class="charbtn" data-char="sasch" style="--char-color:#86efac" aria-label="Sasch">
-        <img class="face" src="./sprites/button-sasch.png" alt="" width="50" height="50" fetchpriority="high" decoding="sync">
-        <img class="icon" src="./sprites/icon-sasch.png?v=2" alt="" width="16" height="16" fetchpriority="high" decoding="sync">
+    <div class="controlrow">
+      <button class="ctrlbtn" id="btnPause" aria-label="Pause">
+        <img id="pauseIcon" src="./sprites/pause.png" alt="" width="18" height="18">
       </button>
-      <div class="charname">Sasch</div>
-    </div>
-    <div class="charslot">
-      <button class="charbtn" data-char="shizzo" style="--char-color:#fca5a5" aria-label="Shizzo">
-        <img class="face" src="./sprites/button-shizzo.png" alt="" width="50" height="50" fetchpriority="high" decoding="sync">
-        <img class="icon" src="./sprites/icon-shizzo.png?v=2" alt="" width="16" height="16" fetchpriority="high" decoding="sync">
-      </button>
-      <div class="charname">Shizzo</div>
-    </div>
-    <div class="charslot">
-      <button class="charbtn" data-char="long" style="--char-color:#93c5fd" aria-label="LonG">
-        <img class="face" src="./sprites/button-long.png" alt="" width="50" height="50" fetchpriority="high" decoding="sync">
-        <img class="icon" src="./sprites/icon-long.png?v=2" alt="" width="16" height="16" fetchpriority="high" decoding="sync">
-      </button>
-      <div class="charname">LonG</div>
     </div>
   </div>
 </div>
@@ -256,7 +285,11 @@
 
   let best = 0;
   try { best = parseInt(localStorage.getItem('fmrun_best') || '0', 10) || 0; } catch(e){}
-  // Best wird nur noch im Game-Over-Screen angezeigt -- Top-Bar zeigt stattdessen Lives.
+  function updateBestDisplay(){
+    const el = document.getElementById('best');
+    if(el) el.textContent = 'Best ' + best.toLocaleString('de-DE') + ' m';
+  }
+  updateBestDisplay();
 
   // ---------- Lives / 1up ----------
   // 1ups spawnen nur als Teil des ramp_oneup Patterns auf Ebene 6.
@@ -636,6 +669,7 @@ const LONG_RUN = new SpriteAnim({
   function onPointer(e){
     if(e.target.closest('.btn')) return;
     if(e.target.closest('.charbtn')) return; // Charakter-Buttons handhaben sich selbst
+    if(e.target.closest('.ctrlbtn')) return; // Pause/Play-Button -> eigener Handler
     e.preventDefault();
     tryStart();
   }
@@ -643,6 +677,36 @@ const LONG_RUN = new SpriteAnim({
 
   document.getElementById('btnStart').addEventListener('click', start);
   document.getElementById('btnRestart').addEventListener('click', start);
+
+  // ---------- Pause / Resume ----------
+  // Pause friert update(dt) ein -- Sidescroll, Spawning, Physik stehen still.
+  // Draw laeuft weiter (sprites bleiben sichtbar). Button-Icon togglet Pause/Play.
+  let paused = false;
+  const pauseBtn  = document.getElementById('btnPause');
+  const pauseIcon = document.getElementById('pauseIcon');
+  function resetPauseButtonUI(){
+    paused = false;
+    pauseIcon.src = './sprites/pause.png';
+    pauseBtn.classList.remove('paused');
+    pauseBtn.setAttribute('aria-label', 'Pause');
+  }
+  function togglePause(){
+    // Nur waehrend aktiven Spielzustaenden pausierbar
+    if(state !== STATE.PLAYING && state !== STATE.SLIDING && state !== STATE.FALLING){
+      // Im READY/OVER Zustand: kein toggle, Button passiv
+      return;
+    }
+    paused = !paused;
+    pauseIcon.src = paused ? './sprites/play.png' : './sprites/pause.png';
+    pauseBtn.classList.toggle('paused', paused);
+    pauseBtn.setAttribute('aria-label', paused ? 'Play' : 'Pause');
+    // Reset lastT damit beim Resume kein riesiger dt-Sprung passiert
+    if(!paused) lastT = 0;
+  }
+  pauseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    togglePause();
+  });
 
   // ---------- start / over ----------
   function preSpawnWorld(){
@@ -676,6 +740,7 @@ const LONG_RUN = new SpriteAnim({
     reset();
     resetSpawnSchedule();
     preSpawnWorld();
+    resetPauseButtonUI(); // falls vorher pausiert war, Icon zuruecksetzen
     state = STATE.PLAYING;
   }
   // Wird beim "ich waere jetzt tot"-Event aufgerufen. Wenn Lives > 0: Life weg, kurze
@@ -703,13 +768,16 @@ const LONG_RUN = new SpriteAnim({
   function gameOver(){
     state = STATE.OVER;
     const m = Math.floor(distance);
-    if(m > best){
+    const wasBest = m > best;
+    if(wasBest){
       best = m;
       try{ localStorage.setItem('fmrun_best', String(best)); }catch(e){}
     }
-    const newBest = (m >= best && m > 0);
-    document.getElementById('overText').textContent = m + ' m   ' + (newBest ? 'new best!' : 'Best: ' + best + ' m');
+    updateBestDisplay();
+    document.getElementById('overText').textContent = m + ' m   ' + (wasBest ? 'new best!' : 'Best: ' + best + ' m');
     document.getElementById('screenOver').classList.remove('hidden');
+    // Pause-Button auf "Pause"-Icon zuruecksetzen (war evtl. auf Play, wenn Spieler pausierte)
+    resetPauseButtonUI();
     puff(player.x + player.w/2, player.y + player.h/2, 24, true);
   }
 
@@ -1583,8 +1651,15 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
+    // Money + 1up: dezenter gruener Outer-Glow (canvas shadow), visueller Kontrast +
+    // Brand-Verbindung zu Shizzo (dem Money-Sammler). Reset nach jedem Block.
+    const MONEY_GLOW_COLOR = '#5cdc8c';
+    const MONEY_GLOW_BLUR  = 10;
+
     // 1ups -- animiertes Sprite (1.5x), schwebt hoch in der Luft (Default 50px ueber Boden,
     // im ramp_oneup Pattern aber 228px ueber dem Top-Floor -- nur via Boost-Rampe erreichbar)
+    ctx.shadowColor = MONEY_GLOW_COLOR;
+    ctx.shadowBlur  = MONEY_GLOW_BLUR;
     for(const u of oneUps){
       if(u.x < -30 || u.x > W + 30) continue;
       const uYOff = u.yOffset != null ? u.yOffset : 50;
@@ -1600,12 +1675,15 @@ const LONG_RUN = new SpriteAnim({
         ctx.beginPath(); ctx.arc(u.x, uy, 14, 0, Math.PI*2); ctx.fill();
       }
     }
+    ctx.shadowBlur = 0;
 
     // Money-Items (Coin / Stack / Bag / Case / Pot) -- animierte Sprites, 1.5x gerendert.
     // c.kind bestimmt Sprite + Wert (siehe SPRITE_BY_KIND / VALUE_BY_KIND).
     // Werden auf allen Etagen gerendert (Lebendigkeit), interagieren aber nur mit dem Spieler
     // wenn er auf der gleichen Etage UND als Shizzo unterwegs ist.
     const coinPulse = Math.sin(timeAlive * 6);
+    ctx.shadowColor = MONEY_GLOW_COLOR;
+    ctx.shadowBlur  = MONEY_GLOW_BLUR;
     for(const c of coins){
       const yOff = c.yOffset != null ? c.yOffset : COIN_Y_OFFSET;
       const cy = levelFloorY(c.level) - yOff + coinPulse * 1.5;
@@ -1626,6 +1704,7 @@ const LONG_RUN = new SpriteAnim({
         ctx.beginPath(); ctx.arc(c.x - 3, cy - 3, COIN_RADIUS * 0.35, 0, Math.PI*2); ctx.fill();
       }
     }
+    ctx.shadowBlur = 0;
 
     // player
     // Spieler -- Flicker-Animation waehrend Unverwundbarkeit nach Life-Loss
@@ -1636,7 +1715,7 @@ const LONG_RUN = new SpriteAnim({
     ctx.globalAlpha = 1;
 
     // Coin-Pickup-Popups ("+1", "+25", ...) -- floaten nach oben, faden aus
-    ctx.font = '900 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif';
+    ctx.font = '12px "Press Start 2P", ui-monospace, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for(const p of popups){
@@ -1697,9 +1776,10 @@ const LONG_RUN = new SpriteAnim({
     roundRect(ctx, x, y, p.w, p.h, 8, true, false);
 
     const name = char.name;
-    const fontSize = name.length <= 3 ? 20 : name.length <= 4 ? 16 : 13;
+    // Press Start 2P ist breiter -> kleinere Sizes als beim System-Font
+    const fontSize = name.length <= 3 ? 12 : name.length <= 4 ? 10 : 8;
     ctx.fillStyle = '#1a1a1a';
-    ctx.font = `900 ${fontSize}px -apple-system,Inter,Segoe UI,Roboto,sans-serif`;
+    ctx.font = `${fontSize}px "Press Start 2P", ui-monospace, monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(name, x + p.w/2, y + p.h/2 + 1);
@@ -1738,7 +1818,8 @@ const LONG_RUN = new SpriteAnim({
     let dt = (t - lastT)/1000;
     lastT = t;
     if(dt > 0.05) dt = 0.05; // clamp big stalls
-    update(dt);
+    // Pause: update einfrieren, draw laeuft weiter (Sprites bleiben sichtbar)
+    if(!paused) update(dt);
     draw();
     requestAnimationFrame(frame);
   }
