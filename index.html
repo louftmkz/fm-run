@@ -301,13 +301,27 @@
   const FORCE_FALL_DISTANCE = 200; // Meter auf einer Ebene bis Force-Fall ausgeloest wird
   let slideProgress = 0;        // [-1..0..1] waehrend SLIDING/FALLING
   let activeRamp = null;        // Referenz auf die gerade befahrene Schraege (fuer geometrische Slide-Bindung)
-  // Rampen-Geometrie ist auf einen festen Winkel von ~58° gelockt (Goldener Schnitt 8:5).
-  // Sprite-Konvention: 120 (Breite) x 192 (Hoehe) Pixel.
-  // -> levelGap = 192 px ist Hoehe einer Etage = Hoehe einer Rampe.
-  // -> RAMP_WIDTH = 120 px ist Breite der Rampe.
-  // tan(Winkel) = 192/120 = 1.6 -> Winkel = atan(1.6) = 58.0 Grad.
+  // Rampen-Geometrie: STRIKTES PARALLELOGRAMM (220 x 192 Sprite).
+  //
+  //    B(120,0) ─────────── C(220,0)        <- Top: Floor k+1
+  //     /                  /
+  //    /  HITBOX 58°      /
+  //   /                  /
+  //  A(0,192) ───────── D(100,192)          <- Bottom: Floor k
+  //   |<-- 100 -->|
+  //      Trigger    |<-- 120 -->|
+  //                    Slope
+  //   |<------- 220 (Sprite-Width) ------>|
+  //
+  // - RAMP_SLOPE  = 120: horizontale Strecke der Slide-Diagonale (= Slide-Trajektorie)
+  // - RAMP_TRIGGER = 100: Bodenkante des Parallelogramms (= Trigger-Zone wo Lou catch'n kann)
+  // - RAMP_WIDTH  = 220: Sprite-Total-Breite (= Slope + Trigger)
+  // - LEVEL_GAP   = 192: Vertikale Hoehe (= Etagen-Abstand)
+  // Winkel = atan(192/120) = 58.0 Grad (Goldener Schnitt 8:5).
   const LEVEL_GAP = 192;
-  const RAMP_WIDTH = 120;
+  const RAMP_SLOPE = 120;
+  const RAMP_TRIGGER = 100;
+  const RAMP_WIDTH = RAMP_SLOPE + RAMP_TRIGGER; // 220 = volle Sprite-Breite
   function levelGap(){ return LEVEL_GAP; }
   function levelFloorY(k){
     // Bildschirm-Y der Etagen-Oberflaeche von Level k.
@@ -954,12 +968,12 @@ const LONG_RUN = new SpriteAnim({
     // LonG -> Lou mid-air
     gap_ramp: [
       { type: 'gap',                   dx:   0, w: 100 },
-      { type: 'ramp',                  dx: 100, w: 120 }
+      { type: 'ramp',                  dx: 100, w: 220 }
     ],
     // Sasch -> Lou
     obstacle_ramp: [
       { type: 'obstacle', kind: 'low', dx:  0 },
-      { type: 'ramp',                  dx: 60,  w: 120 }
+      { type: 'ramp',                  dx: 60,  w: 220 }
     ],
     // Sasch-only
     triple_obstacles: [
@@ -998,7 +1012,7 @@ const LONG_RUN = new SpriteAnim({
     ],
     // Lou -> LonG nach Aufstieg: Rampe auf Lvl k, Loch auf Lvl k+1 sequentiell danach
     ramp_gap: [
-      { type: 'ramp',                  dx:   0, w: 120 },
+      { type: 'ramp',                  dx:   0, w: 220 },
       { type: 'gap',                   dx: 100, w: 100, lvlOff: 1 }
     ],
     // LonG springt ueber Loch, mid-air auf Shizzo wechseln um die Air-Coin zu greifen.
@@ -1012,20 +1026,20 @@ const LONG_RUN = new SpriteAnim({
     // dy = Schwebehoehe ueber Top-Floor (228px = "Etage 7"-Position),
     // dx Abstand zur Rampe damit der Spieler durch den Bogen "hineinfliegt".
     top_ramp_alone: [
-      { type: 'ramp', dx:  0, w: 120 }
+      { type: 'ramp', dx:  0, w: 220 }
     ],
     top_ramp_coin: [
-      { type: 'ramp', dx:  0, w: 120 },
+      { type: 'ramp', dx:  0, w: 220 },
       { type: 'coin', dx: 50, dy: 228 }
     ],
     top_arc_coins: [
-      { type: 'ramp', dx:  0, w: 120 },
+      { type: 'ramp', dx:  0, w: 220 },
       { type: 'coin', dx: 30, dy: 228 },
       { type: 'coin', dx: 25, dy: 228 },
       { type: 'coin', dx: 25, dy: 228 }
     ],
     ramp_oneup: [
-      { type: 'ramp',  dx:  0, w: 120 },
+      { type: 'ramp',  dx:  0, w: 220 },
       { type: 'oneup', dx: 80,         dy: 228 }
     ],
     // gap_air_oneup: Loch + 1up in der Luft (LonG-Sprung-Apex). Nur via Force-Spawn auf Ebene 2-5.
@@ -1074,8 +1088,8 @@ const LONG_RUN = new SpriteAnim({
     const last = rightmostEntityInfoForLevel(lvl);
     const safeX = Math.max(W + 20, (last.x === -Infinity ? W + 20 : last.x + 60));
     if(lvl === 0){
-      ramps.push({ x: safeX, w: 120, level: 0, forced: true });
-      gaps.push({ x: safeX + 130 + 100, w: FORCE_GAP_W, level: 0, forced: true });
+      ramps.push({ x: safeX, w: RAMP_WIDTH, level: 0, forced: true });
+      gaps.push({ x: safeX + RAMP_WIDTH + 80, w: FORCE_GAP_W, level: 0, forced: true });
     } else {
       gaps.push({ x: safeX, w: FORCE_GAP_W, level: lvl, forced: true });
     }
@@ -1310,8 +1324,11 @@ const LONG_RUN = new SpriteAnim({
     if(state === STATE.SLIDING){
       tickScrollingWorld(dt);
       if(activeRamp){
-        const pcx = player.x + player.w/2;
-        slideProgress = Math.max(0, Math.min(1, (pcx - activeRamp.x) / activeRamp.w));
+        // Slide-Progress: delta zum gespeicherten slideStartX, normalisiert auf RAMP_SLOPE.
+        // Ramp scrollt nach links -> rp.x sinkt -> delta steigt von 0 auf RAMP_SLOPE (120 px) -> progress 0->1.
+        // Egal wo der Player ins Parallelogramm eintrat, der Slide laeuft immer 120 horizontale Pixel.
+        const dx = (activeRamp.slideStartX != null ? activeRamp.slideStartX : activeRamp.x) - activeRamp.x;
+        slideProgress = Math.max(0, Math.min(1, dx / RAMP_SLOPE));
         if(slideProgress >= 1){
           slideProgress = 0;
           currentLevel++;
@@ -1446,23 +1463,32 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
-    // ---------- Schraegen-Kollision ----------
-    // Nur Lou interagiert mit Schraegen. Andere ignorieren die Hitbox komplett.
-    // Auf MAX_LEVEL (Ebene 6) gibt es keine hoehere Etage -> die Rampe wird zum
-    // Boost-Pad und triggert einen Arc-Jump statt Slide.
+    // ---------- Schraegen-Kollision (STRIKTES PARALLELOGRAMM) ----------
+    // Nur Lou interagiert mit Schraegen. Test: Player's Fuss-Mittelpunkt muss INNERHALB
+    // des Parallelogramms liegen. Bottom-Edge ist nur 100px breit (Trigger-Zone) --
+    // verfehlt man die Tiefe (sprite-local x > 100 am Boden), laeuft Lou drunter durch.
+    // Edge-Case: Faellt Lou von oben durch eine Luecke direkt in das Parallelogramm,
+    // matcht der Test auch oberhalb des Bodens -> Slide triggert sofort.
     if(state === STATE.PLAYING && activeCharacter === 'lou'){
+      const pcx = player.x + player.w/2;
+      const pcy = player.y + player.h; // Fuss-Mittelpunkt
       for(const rp of ramps){
         if(rp.level !== currentLevel) continue;
-        const ry0 = levelFloorY(rp.level + 1); // top
-        const ry1 = levelFloorY(rp.level);     // bottom
-        if(player.x < rp.x + rp.w && player.x + player.w > rp.x &&
-           player.y < ry1 && player.y + player.h > ry0){
+        const ry0 = levelFloorY(rp.level + 1); // top (= Floor k+1)
+        const ry1 = levelFloorY(rp.level);     // bottom (= Floor k)
+        // Parallelogramm-Test: dy = Hoehe ueber rp's Boden, leftX/rightX shifted nach Slope.
+        const dy = ry1 - pcy;
+        if(dy < 0 || dy > LEVEL_GAP) continue;
+        const leftX  = rp.x + (dy / LEVEL_GAP) * RAMP_SLOPE;
+        const rightX = leftX + RAMP_TRIGGER;
+        if(pcx >= leftX && pcx <= rightX){
           if(currentLevel === MAX_LEVEL){
             triggerLouArcJump();
           } else {
             state = STATE.SLIDING;
             slideProgress = 0;
             activeRamp = rp;
+            rp.slideStartX = rp.x;   // Capture rp.x bei Trigger fuer Slide-Progress-Delta
             player.vy = 0;
             puff(player.x + player.w/2, groundY(), 8);
           }
@@ -1676,27 +1702,34 @@ const LONG_RUN = new SpriteAnim({
       ctx.clearRect(g.x, gy - 2, g.w, 5);
     }
 
-    // Treppen (Schraegen) -- Dreieck von Etage k bis Etage k+1
+    // Treppen (Schraegen) -- PARALLELOGRAMM:
+    //   A(rp.x, ry1) - B(rp.x+SLOPE, ry0) - C(rp.x+SLOPE+TRIGGER, ry0) - D(rp.x+TRIGGER, ry1)
+    // Procedural Fallback bis das echte 220x192 Pixel-Art-Sprite vorliegt.
     for(const rp of ramps){
-      const bottomY = levelFloorY(rp.level);
-      const topY    = levelFloorY(rp.level + 1);
-      if(bottomY < -50 || topY > H + 50) continue;
-      const rgrad = ctx.createLinearGradient(rp.x, topY, rp.x + rp.w, bottomY);
-      rgrad.addColorStop(0, '#ffd95c');
-      rgrad.addColorStop(1, '#ff8a3d');
+      const ry1 = levelFloorY(rp.level);     // Boden Level k
+      const ry0 = levelFloorY(rp.level + 1); // Boden Level k+1 (= Top der Rampe)
+      if(ry1 < -50 || ry0 > H + 50) continue;
+      const ax = rp.x,                            ay = ry1;
+      const bx = rp.x + RAMP_SLOPE,               by = ry0;
+      const cx = rp.x + RAMP_SLOPE + RAMP_TRIGGER, cy = ry0;
+      const dx_ = rp.x + RAMP_TRIGGER,             dy_ = ry1;
+      const rgrad = ctx.createLinearGradient(ax, ay, bx, by);
+      rgrad.addColorStop(0, '#ff8a3d');
+      rgrad.addColorStop(1, '#ffd95c');
       ctx.fillStyle = rgrad;
       ctx.beginPath();
-      ctx.moveTo(rp.x, bottomY);
-      ctx.lineTo(rp.x + rp.w, topY);
-      ctx.lineTo(rp.x + rp.w, bottomY);
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(dx_, dy_);
       ctx.closePath();
       ctx.fill();
-      // weisse Diagonal-Akzentlinie auf der Lauf-Seite
-      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      // Walking-Diagonale (Lauf-Seite) als knackige Linie
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(rp.x, bottomY);
-      ctx.lineTo(rp.x + rp.w, topY);
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
       ctx.stroke();
     }
 
