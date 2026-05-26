@@ -74,6 +74,15 @@
   function loadSession(){ try { return JSON.parse(localStorage.getItem('fmrun_session') || 'null'); } catch(e){ return null; } }
   function clearSession(){ try { localStorage.removeItem('fmrun_session'); } catch(e){} }
 
+  // Password hashing using Web Crypto API (native browser API)
+  async function hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
   async function signUp(){
     const handle = ($('signupHandle').value || '').trim();
     const password = $('signupPassword').value || '';
@@ -84,20 +93,14 @@
     if(password.length < 6){ err.textContent = 'Passwort: mindestens 6 Zeichen'; return; }
     if(password !== passwordConfirm){ err.textContent = 'Passwörter stimmen nicht überein'; return; }
 
-    // Check if bcrypt is available
-    if(typeof bcrypt === 'undefined' || typeof window.bcrypt === 'undefined'){
-      err.textContent = 'Passwort-Verschlüsselung lädt noch... Bitte nochmal versuchen.';
-      return;
-    }
-
     $('btnSignUp').disabled = true;
     try {
       // Check if handle exists
       const { data: exists } = await sb.rpc('handle_exists', { p_handle: handle });
       if(exists){ err.textContent = 'Handle bereits vergeben'; return; }
 
-      // Hash password with bcrypt (10 rounds)
-      const passwordHash = await (window.bcrypt || bcrypt).hash(password, 10);
+      // Hash password with SHA-256 (Web Crypto API)
+      const passwordHash = await hashPassword(password);
 
       // Generate unique user ID
       const userId = crypto.randomUUID();
@@ -131,14 +134,11 @@
     if(!validHandle(handle)){ err.textContent = 'Ungültiger Handle'; return; }
     if(!password){ err.textContent = 'Passwort eingeben'; return; }
 
-    // Check if bcrypt is available
-    if(typeof bcrypt === 'undefined' && typeof window.bcrypt === 'undefined'){
-      err.textContent = 'Passwort-Verschlüsselung lädt noch... Bitte nochmal versuchen.';
-      return;
-    }
-
     $('btnSignIn').disabled = true;
     try {
+      // Hash password with SHA-256
+      const passwordHash = await hashPassword(password);
+
       // Fetch profile by handle (case-insensitive)
       const { data: profiles, error } = await sb.from('profiles')
         .select('id, handle, password_hash, best_distance')
@@ -151,8 +151,8 @@
         return;
       }
 
-      // Compare password with stored hash using bcrypt
-      const isValid = await (window.bcrypt || bcrypt).compare(password, profiles.password_hash);
+      // Compare password hash
+      const isValid = passwordHash === profiles.password_hash;
       if(!isValid){
         err.textContent = 'Handle oder Passwort falsch';
         return;
