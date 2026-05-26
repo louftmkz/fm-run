@@ -5,9 +5,8 @@
 
   const cfg = window.FMRUN_SUPABASE || {};
   let sb = null;        // Supabase-Client
-  let session = null;   // aktuelle Auth-Session
+  let session = null;   // simple Session: { userId, handle } aus localStorage
   let profile = null;   // { id, handle, best_distance }
-  let pendingEmail = ''; // E-Mail während OTP-Flow
   let boardTab = 'friends';
 
   const $ = (id) => document.getElementById(id);
@@ -40,13 +39,9 @@
   function updateAccountChip(){
     const status = $('accountStatus'), authBtn = $('btnAuth'), outBtn = $('btnSignOut');
     if(!status) return;
-    if(profile){
+    if(session && profile){
       status.textContent = '@' + profile.handle;
       authBtn.classList.add('hidden');
-      outBtn.classList.remove('hidden');
-    } else if(session){
-      status.textContent = 'Angemeldet (kein Handle)';
-      authBtn.classList.remove('hidden'); authBtn.textContent = 'Handle wählen';
       outBtn.classList.remove('hidden');
     } else {
       status.textContent = 'Nicht angemeldet';
@@ -58,16 +53,16 @@
   // ---------- Profil laden ----------
   async function loadProfile(){
     profile = null;
-    if(!session) return;
+    if(!session || !session.userId) return;
     const { data, error } = await sb.from('profiles')
-      .select('id, handle, best_distance').eq('id', session.user.id).maybeSingle();
+      .select('id, handle, best_distance').eq('id', session.userId).maybeSingle();
     if(!error && data) profile = data;
     // Lokalen Highscore migrieren (greatest() ist idempotent)
-    if(profile){
+    if(profile && session && session.userId){
       let localBest = 0;
       try { localBest = parseInt(localStorage.getItem('fmrun_best') || '0', 10) || 0; } catch(e){}
       if(localBest > (profile.best_distance || 0)){
-        try { const { data } = await sb.rpc('submit_score', { p_distance: localBest });
+        try { const { data } = await sb.rpc('submit_score_by_id', { p_user_id: session.userId, p_distance: localBest });
               if(typeof data === 'number') profile.best_distance = data; } catch(e){}
       }
     }
@@ -75,65 +70,96 @@
 
   // ---------- Auth-Funktionen ----------
   function validHandle(h){ return /^[A-Za-z0-9_]{3,20}$/.test(h); }
+  function saveSession(s){ try { localStorage.setItem('fmrun_session', JSON.stringify(s)); } catch(e){} }
+  function loadSession(){ try { return JSON.parse(localStorage.getItem('fmrun_session') || 'null'); } catch(e){ return null; } }
+  function clearSession(){ try { localStorage.removeItem('fmrun_session'); } catch(e){} }
 
-  async function sendCode(){
-    const email = ($('authEmail').value || '').trim();
-    const err = $('authEmailErr'); err.textContent = '';
-    if(!email || !email.includes('@')){ err.textContent = 'Bitte gültige E-Mail eingeben.'; return; }
-    $('btnSendCode').disabled = true;
-    try {
-      const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-      if(error) throw error;
-      pendingEmail = email;
-      $('authCodeNote').textContent = 'Code aus der E-Mail an ' + email + ' eingeben.';
-      showView('auth-code');
-    } catch(e){
-      err.textContent = e.message || 'Senden fehlgeschlagen.';
-    } finally { $('btnSendCode').disabled = false; }
-  }
+  async function signUp(){
+    const handle = ($('signupHandle').value || '').trim();
+    const password = $('signupPassword').value || '';
+    const passwordConfirm = $('signupPasswordConfirm').value || '';
+    const err = $('signupErr'); err.textContent = '';
 
-  async function verifyCode(){
-    const token = ($('authCode').value || '').trim();
-    const err = $('authCodeErr'); err.textContent = '';
-    if(!/^\d{6}$/.test(token)){ err.textContent = '6-stelligen Code eingeben.'; return; }
-    $('btnVerifyCode').disabled = true;
+    if(!validHandle(handle)){ err.textContent = 'Handle: 3–20 Zeichen (A-Z, 0-9, _)'; return; }
+    if(password.length < 6){ err.textContent = 'Passwort: mindestens 6 Zeichen'; return; }
+    if(password !== passwordConfirm){ err.textContent = 'Passwörter stimmen nicht überein'; return; }
+
+    $('btnSignUp').disabled = true;
     try {
-      const { data, error } = await sb.auth.verifyOtp({ email: pendingEmail, token, type: 'email' });
-      if(error) throw error;
-      session = data.session || null;
+      // Check if handle exists
+      const { data: exists } = await sb.rpc('handle_exists', { p_handle: handle });
+      if(exists){ err.textContent = 'Handle bereits vergeben'; return; }
+
+      // Hash password with bcrypt (10 rounds)
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      // Generate unique user ID
+      const userId = crypto.randomUUID();
+
+      // Insert profile with password_hash
+      const { error: insertErr } = await sb.from('profiles')
+        .insert({ id: userId, handle, password_hash: passwordHash });
+
+      if(insertErr){
+        if(insertErr.code === '23505'){ err.textContent = 'Handle bereits vergeben'; return; }
+        throw insertErr;
+      }
+
+      // Create session
+      session = { userId, handle };
+      saveSession(session);
       await loadProfile();
       updateAccountChip();
-      if(profile){ hideModal(); toast('Willkommen zurück, @' + profile.handle); }
-      else { showView('auth-handle'); }
+      hideModal();
+      toast('Willkommen, @' + handle + '!');
     } catch(e){
-      err.textContent = e.message || 'Code ungültig oder abgelaufen.';
-    } finally { $('btnVerifyCode').disabled = false; }
+      err.textContent = e.message || 'Registrierung fehlgeschlagen';
+    } finally { $('btnSignUp').disabled = false; }
   }
 
-  async function saveHandle(){
-    const handle = ($('authHandle').value || '').trim();
-    const err = $('authHandleErr'); err.textContent = '';
-    if(!validHandle(handle)){ err.textContent = '3–20 Zeichen: Buchstaben, Zahlen, _'; return; }
-    if(!session){ err.textContent = 'Nicht angemeldet.'; return; }
-    $('btnSaveHandle').disabled = true;
+  async function signIn(){
+    const handle = ($('loginHandle').value || '').trim();
+    const password = $('loginPassword').value || '';
+    const err = $('loginErr'); err.textContent = '';
+
+    if(!validHandle(handle)){ err.textContent = 'Ungültiger Handle'; return; }
+    if(!password){ err.textContent = 'Passwort eingeben'; return; }
+
+    $('btnSignIn').disabled = true;
     try {
-      const { error } = await sb.from('profiles').insert({ id: session.user.id, handle });
-      if(error){
-        if(error.code === '23505'){ err.textContent = 'Handle bereits vergeben.'; return; }
-        throw error;
+      // Fetch profile by handle (case-insensitive)
+      const { data: profiles, error } = await sb.from('profiles')
+        .select('id, handle, password_hash, best_distance')
+        .ilike('handle', handle)
+        .maybeSingle();
+
+      if(error) throw error;
+      if(!profiles){
+        err.textContent = 'Handle oder Passwort falsch';
+        return;
       }
-      await loadProfile();      // lädt Profil + migriert lokalen Best
-      if(!profile) profile = { id: session.user.id, handle, best_distance: 0 };
+
+      // Compare password with stored hash using bcrypt
+      const isValid = await bcrypt.compare(password, profiles.password_hash);
+      if(!isValid){
+        err.textContent = 'Handle oder Passwort falsch';
+        return;
+      }
+
+      // Create session
+      session = { userId: profiles.id, handle: profiles.handle };
+      saveSession(session);
+      await loadProfile();
       updateAccountChip();
       hideModal();
-      toast('Handle gespeichert: @' + handle);
+      toast('Willkommen zurück, @' + profiles.handle);
     } catch(e){
-      err.textContent = e.message || 'Speichern fehlgeschlagen.';
-    } finally { $('btnSaveHandle').disabled = false; }
+      err.textContent = e.message || 'Anmeldung fehlgeschlagen';
+    } finally { $('btnSignIn').disabled = false; }
   }
 
-  async function signOut(){
-    if(sb){ try { await sb.auth.signOut(); } catch(e){} }
+  function signOut(){
+    clearSession();
     session = null; profile = null;
     updateAccountChip(); hideModal();
     toast('Abgemeldet');
@@ -143,14 +169,14 @@
   async function submitScore(distanceMeters){
     const d = Math.max(0, Math.floor(distanceMeters || 0));
     const rankEl = $('overRank');
-    if(!cfgOk() || !session || !profile){
+    if(!cfgOk() || !session || !session.userId || !profile){
       if(rankEl) rankEl.textContent = '';   // ausgeloggt: keine Rang-Anzeige
       return;
     }
     try {
-      const { data: best } = await sb.rpc('submit_score', { p_distance: d });
+      const { data: best } = await sb.rpc('submit_score_by_id', { p_user_id: session.userId, p_distance: d });
       if(typeof best === 'number') profile.best_distance = best;
-      const { data: rank } = await sb.rpc('my_worldwide_rank');
+      const { data: rank } = await sb.rpc('my_worldwide_rank_by_id', { p_user_id: session.userId });
       if(rankEl && typeof rank === 'number') rankEl.textContent = 'Welt-Rang: #' + rank;
     } catch(e){
       if(rankEl) rankEl.textContent = '';
@@ -162,7 +188,7 @@
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   async function openBoard(){
-    if(!session || !profile){ showModal('auth-email'); toast('Erst anmelden'); return; }
+    if(!session || !profile){ showModal('auth-signup'); toast('Erst anmelden'); return; }
     showModal('board');
     setTab(boardTab);
   }
@@ -190,8 +216,12 @@
 
   async function loadFriendsBoard(){
     $('boardList').innerHTML = '<div class="fmlist-empty">Lädt…</div>';
+    if(!session || !session.userId){
+      $('boardList').innerHTML = '<div class="fmlist-empty">Nicht angemeldet.</div>';
+      return;
+    }
     try {
-      const { data, error } = await sb.rpc('friends_leaderboard');
+      const { data, error } = await sb.rpc('friends_leaderboard_by_id', { p_user_id: session.userId });
       if(error) throw error;
       renderBoard(data || []);
     } catch(e){ $('boardList').innerHTML = '<div class="fmlist-empty">Fehler beim Laden.</div>'; }
@@ -203,21 +233,23 @@
       const { data, error } = await sb.from('profiles')
         .select('id, handle, best_distance').order('best_distance', { ascending: false }).limit(100);
       if(error) throw error;
-      const rows = (data || []).map(r => ({ ...r, is_me: !!(session && r.id === session.user.id) }));
+      const rows = (data || []).map(r => ({ ...r, is_me: !!(session && r.id === session.userId) }));
       renderBoard(rows);
-      try {
-        const { data: rank } = await sb.rpc('my_worldwide_rank');
-        if(typeof rank === 'number'){
-          $('boardList').insertAdjacentHTML('beforeend',
-            '<div class="fmlist-empty">Dein Welt-Rang: #' + rank + '</div>');
-        }
-      } catch(e){}
+      if(session && session.userId){
+        try {
+          const { data: rank } = await sb.rpc('my_worldwide_rank_by_id', { p_user_id: session.userId });
+          if(typeof rank === 'number'){
+            $('boardList').insertAdjacentHTML('beforeend',
+              '<div class="fmlist-empty">Dein Welt-Rang: #' + rank + '</div>');
+          }
+        } catch(e){}
+      }
     } catch(e){ $('boardList').innerHTML = '<div class="fmlist-empty">Fehler beim Laden.</div>'; }
   }
 
   // ---------- Freunde-Verwaltung ----------
   async function openFriends(){
-    if(!session || !profile){ showModal('auth-email'); return; }
+    if(!session || !profile){ showModal('auth-signup'); return; }
     showView('friends');
     $('friendErr').textContent = '';
     loadRequestsAndFriends();
@@ -241,14 +273,14 @@
       // Gibt es bereits eine Beziehung (egal welche Richtung)?
       const { data: existing } = await sb.from('friendships')
         .select('id, requester_id, addressee_id, status')
-        .or('and(requester_id.eq.' + session.user.id + ',addressee_id.eq.' + target.id + '),'
-          + 'and(requester_id.eq.' + target.id + ',addressee_id.eq.' + session.user.id + ')')
+        .or('and(requester_id.eq.' + session.userId + ',addressee_id.eq.' + target.id + '),'
+          + 'and(requester_id.eq.' + target.id + ',addressee_id.eq.' + session.userId + ')')
         .maybeSingle();
 
       if(existing){
         if(existing.status === 'accepted'){ err.textContent = 'Ihr seid bereits Freunde.'; return; }
         // pending: hat der ANDERE mir geschickt? -> automatisch annehmen
-        if(existing.addressee_id === session.user.id){
+        if(existing.addressee_id === session.userId){
           const { error: e2 } = await sb.from('friendships')
             .update({ status: 'accepted' }).eq('id', existing.id);
           if(e2) throw e2;
@@ -258,7 +290,7 @@
         }
       } else {
         const { error: e3 } = await sb.from('friendships')
-          .insert({ requester_id: session.user.id, addressee_id: target.id, status: 'pending' });
+          .insert({ requester_id: session.userId, addressee_id: target.id, status: 'pending' });
         if(e3) throw e3;
         toast('Anfrage an @' + target.handle + ' gesendet');
       }
@@ -278,7 +310,7 @@
       // Eingehende Anfragen: ich bin addressee, pending; Requester-Handle joinen
       const { data: reqs } = await sb.from('friendships')
         .select('id, status, requester:profiles!friendships_requester_id_fkey(handle)')
-        .eq('addressee_id', session.user.id).eq('status', 'pending');
+        .eq('addressee_id', session.userId).eq('status', 'pending');
       reqList.innerHTML = (reqs && reqs.length)
         ? reqs.map(r => '<div class="fmlist-row"><span class="who">@'
             + escapeHtml(r.requester ? r.requester.handle : '?') + '</span>'
@@ -291,7 +323,7 @@
       // Ausgehende Anfragen: ich bin requester, pending; Addressee-Handle joinen
       const { data: sent } = await sb.from('friendships')
         .select('id, status, addressee:profiles!friendships_addressee_id_fkey(handle)')
-        .eq('requester_id', session.user.id).eq('status', 'pending');
+        .eq('requester_id', session.userId).eq('status', 'pending');
       $('sentList').innerHTML = (sent && sent.length)
         ? sent.map(s => '<div class="fmlist-row"><span class="who">@'
             + escapeHtml(s.addressee ? s.addressee.handle : '?') + '</span>'
@@ -305,10 +337,10 @@
           + ' requester:profiles!friendships_requester_id_fkey(handle),'
           + ' addressee:profiles!friendships_addressee_id_fkey(handle)')
         .eq('status', 'accepted')
-        .or('requester_id.eq.' + session.user.id + ',addressee_id.eq.' + session.user.id);
+        .or('requester_id.eq.' + session.userId + ',addressee_id.eq.' + session.userId);
       frList.innerHTML = (fr && fr.length)
         ? fr.map(f => {
-            const other = f.requester_id === session.user.id ? f.addressee : f.requester;
+            const other = f.requester_id === session.userId ? f.addressee : f.requester;
             return '<div class="fmlist-row"><span class="who">@'
               + escapeHtml(other ? other.handle : '?') + '</span>'
               + '<span class="act"><button class="fmminibtn no" data-remove="' + f.id + '">Entfernen</button></span></div>';
@@ -341,15 +373,12 @@
     if(!cfgOk()){ console.info('[ranking] Supabase nicht konfiguriert — Ranking deaktiviert.'); return; }
     try {
       sb = window.supabase.createClient(cfg.url, cfg.anonKey);
-      const { data } = await sb.auth.getSession();
-      session = data.session || null;
-      await loadProfile();
-      updateAccountChip();
-      sb.auth.onAuthStateChange((evt, s) => {
-        if(evt === 'INITIAL_SESSION') return;
-        session = s || null;
-        loadProfile().then(updateAccountChip);
-      });
+      // Load session from localStorage
+      session = loadSession();
+      if(session){
+        await loadProfile();
+        updateAccountChip();
+      }
     } catch(e){
       console.warn('[ranking] init fehlgeschlagen:', e);
     }
@@ -361,14 +390,14 @@
     const board = $('btnBoard'); if(board) board.onclick = () => { if(!cfgOk()){ toast('Ranking nicht verfügbar'); return; } openBoard(); };
     const auth = $('btnAuth'); if(auth) auth.onclick = () => {
       if(!cfgOk()){ toast('Login nicht verfügbar'); return; }
-      if(session && !profile) showModal('auth-handle'); else showModal('auth-email');
+      showModal('auth-signup');
     };
     const out = $('btnSignOut'); if(out) out.onclick = signOut;
-    // Auth-Buttons
-    const send = $('btnSendCode'); if(send) send.onclick = sendCode;
-    const verify = $('btnVerifyCode'); if(verify) verify.onclick = verifyCode;
-    const resend = $('btnResendCode'); if(resend) resend.onclick = sendCode;
-    const saveH = $('btnSaveHandle'); if(saveH) saveH.onclick = saveHandle;
+    // Auth-Buttons (neue Handle+Password Auth)
+    const signup = $('btnSignUp'); if(signup) signup.onclick = signUp;
+    const signin = $('btnSignIn'); if(signin) signin.onclick = signIn;
+    const toLogin = $('btnToLogin'); if(toLogin) toLogin.onclick = () => showView('auth-login');
+    const toSignup = $('btnToSignup'); if(toSignup) toSignup.onclick = () => showView('auth-signup');
     // Tab-Buttons
     const tf = $('tabFriends'); if(tf) tf.onclick = () => setTab('friends');
     const tw = $('tabWorld'); if(tw) tw.onclick = () => setTab('world');

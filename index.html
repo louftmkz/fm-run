@@ -233,32 +233,27 @@
   <div class="fmmodal-panel">
     <button class="fmmodal-close" id="fmModalClose" type="button" aria-label="Schließen">✕</button>
 
-    <!-- View: E-Mail -->
-    <div class="fmview" data-view="auth-email">
+    <!-- View: Registrierung -->
+    <div class="fmview" data-view="auth-signup">
+      <h2>Registrieren</h2>
+      <p class="fmnote">Handle: 3–20 Zeichen (A-Z, 0-9, _) · Passwort: mind. 6 Zeichen</p>
+      <input class="fminput" id="signupHandle" type="text" maxlength="20" placeholder="dein_handle" autocomplete="username">
+      <input class="fminput" id="signupPassword" type="password" minlength="6" placeholder="Passwort" autocomplete="new-password">
+      <input class="fminput" id="signupPasswordConfirm" type="password" minlength="6" placeholder="Passwort bestätigen" autocomplete="new-password">
+      <button class="btn" id="btnSignUp" type="button">Registrieren</button>
+      <button class="linkbtn" id="btnToLogin" type="button">Bereits registriert? → Anmelden</button>
+      <div class="fmerr" id="signupErr"></div>
+    </div>
+
+    <!-- View: Anmeldung -->
+    <div class="fmview hidden" data-view="auth-login">
       <h2>Anmelden</h2>
-      <p class="fmnote">Wir schicken dir einen 6-stelligen Code per E-Mail.</p>
-      <input class="fminput" id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="email@beispiel.de">
-      <button class="btn" id="btnSendCode" type="button">Code senden</button>
-      <div class="fmerr" id="authEmailErr"></div>
-    </div>
-
-    <!-- View: Code -->
-    <div class="fmview hidden" data-view="auth-code">
-      <h2>Code eingeben</h2>
-      <p class="fmnote" id="authCodeNote">Code aus der E-Mail eingeben.</p>
-      <input class="fminput" id="authCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
-      <button class="btn" id="btnVerifyCode" type="button">Bestätigen</button>
-      <button class="linkbtn" id="btnResendCode" type="button">Code erneut senden</button>
-      <div class="fmerr" id="authCodeErr"></div>
-    </div>
-
-    <!-- View: Handle -->
-    <div class="fmview hidden" data-view="auth-handle">
-      <h2>Handle wählen</h2>
-      <p class="fmnote">3–20 Zeichen: Buchstaben, Zahlen, _</p>
-      <input class="fminput" id="authHandle" type="text" maxlength="20" placeholder="dein_handle">
-      <button class="btn" id="btnSaveHandle" type="button">Speichern</button>
-      <div class="fmerr" id="authHandleErr"></div>
+      <p class="fmnote">Melde dich mit deinem Handle und Passwort an.</p>
+      <input class="fminput" id="loginHandle" type="text" maxlength="20" placeholder="dein_handle" autocomplete="username">
+      <input class="fminput" id="loginPassword" type="password" placeholder="Passwort" autocomplete="current-password">
+      <button class="btn" id="btnSignIn" type="button">Anmelden</button>
+      <button class="linkbtn" id="btnToSignup" type="button">Noch kein Account? → Registrieren</button>
+      <div class="fmerr" id="loginErr"></div>
     </div>
 
     <!-- View: Rangliste -->
@@ -2125,6 +2120,7 @@ const LONG_RUN = new SpriteAnim({
   };
 </script>
 <script src="./vendor/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js" integrity="sha512-2diBLVZ9sygdI6Kz5yVQfMdABZVmgVMaQqGqCIg/mtC0Y2m6agGn2I5zKZkWpE0+UE6JlwSLj8q3y2V0pBgF4w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="./ranking.js" defer></script>
 </body>
 </html>
