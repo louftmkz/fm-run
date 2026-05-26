@@ -84,6 +84,12 @@
     if(password.length < 6){ err.textContent = 'Passwort: mindestens 6 Zeichen'; return; }
     if(password !== passwordConfirm){ err.textContent = 'Passwörter stimmen nicht überein'; return; }
 
+    // Check if bcrypt is available
+    if(typeof bcrypt === 'undefined' || typeof window.bcrypt === 'undefined'){
+      err.textContent = 'Passwort-Verschlüsselung lädt noch... Bitte nochmal versuchen.';
+      return;
+    }
+
     $('btnSignUp').disabled = true;
     try {
       // Check if handle exists
@@ -91,7 +97,7 @@
       if(exists){ err.textContent = 'Handle bereits vergeben'; return; }
 
       // Hash password with bcrypt (10 rounds)
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await (window.bcrypt || bcrypt).hash(password, 10);
 
       // Generate unique user ID
       const userId = crypto.randomUUID();
@@ -125,6 +131,12 @@
     if(!validHandle(handle)){ err.textContent = 'Ungültiger Handle'; return; }
     if(!password){ err.textContent = 'Passwort eingeben'; return; }
 
+    // Check if bcrypt is available
+    if(typeof bcrypt === 'undefined' && typeof window.bcrypt === 'undefined'){
+      err.textContent = 'Passwort-Verschlüsselung lädt noch... Bitte nochmal versuchen.';
+      return;
+    }
+
     $('btnSignIn').disabled = true;
     try {
       // Fetch profile by handle (case-insensitive)
@@ -140,7 +152,7 @@
       }
 
       // Compare password with stored hash using bcrypt
-      const isValid = await bcrypt.compare(password, profiles.password_hash);
+      const isValid = await (window.bcrypt || bcrypt).compare(password, profiles.password_hash);
       if(!isValid){
         err.textContent = 'Handle oder Passwort falsch';
         return;
