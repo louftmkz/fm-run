@@ -106,6 +106,38 @@
   .hidden{display:none !important}
   .gameover .title{background:linear-gradient(90deg,var(--danger),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:8px;margin-left:8px;vertical-align:middle}
+  /* ===== Ranking UI ===== */
+  .btn-secondary{background:transparent;color:var(--accent);box-shadow:none;border:2px solid var(--accent);margin-top:12px}
+  .account{margin-top:18px;font-size:13px;color:var(--ink-dim);display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .linkbtn{pointer-events:auto;background:none;border:0;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline;padding:0}
+  .fmmodal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72);padding:18px;pointer-events:auto}
+  .fmmodal-panel{position:relative;width:100%;max-width:380px;max-height:88vh;overflow-y:auto;background:var(--bg-0,#15151b);border:2px solid var(--accent);border-radius:14px;padding:24px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .fmmodal-close{position:absolute;top:10px;right:12px;background:none;border:0;color:var(--ink-dim);font-size:20px;cursor:pointer}
+  .fmview h2{font-family:'Press Start 2P',system-ui,sans-serif;font-size:15px;color:var(--accent);margin:0 0 14px;letter-spacing:1px}
+  .fmsub{font-family:'Press Start 2P',system-ui,sans-serif;font-size:10px;color:var(--ink-dim);margin:18px 0 8px;letter-spacing:1px}
+  .fmnote{color:var(--ink-dim);font-size:13px;margin:0 0 12px}
+  .fminput{width:100%;box-sizing:border-box;padding:12px 14px;margin:0 0 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:var(--ink,#fff);font-size:16px}
+  .fminput:focus{outline:none;border-color:var(--accent)}
+  .fmerr{color:var(--danger,#ff5566);font-size:13px;min-height:18px;margin-top:6px}
+  .fmrow{display:flex;gap:8px;align-items:flex-start}
+  .fmrow .fminput{flex:1}
+  .fmrow .btn{padding:12px 18px}
+  .fmtabs{display:flex;gap:8px;margin-bottom:12px}
+  .fmtab{flex:1;pointer-events:auto;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:transparent;color:var(--ink-dim);font:inherit;font-weight:700;cursor:pointer}
+  .fmtab.active{border-color:var(--accent);color:var(--accent);background:rgba(255,204,51,.08)}
+  .fmlist{display:flex;flex-direction:column;gap:6px;min-height:24px}
+  .fmlist-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,.05);font-size:14px}
+  .fmlist-row.me{background:rgba(255,204,51,.14);border:1px solid rgba(255,204,51,.4)}
+  .fmlist-row .rank{width:34px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+  .fmlist-row .who{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fmlist-row .dist{font-variant-numeric:tabular-nums;color:var(--accent)}
+  .fmlist-row .act{display:flex;gap:6px}
+  .fmlist-empty{color:var(--ink-dim);font-size:13px;padding:8px 2px}
+  .fmminibtn{pointer-events:auto;border:0;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
+  .fmminibtn.ok{background:var(--accent);color:#1a1a1a}
+  .fmminibtn.no{background:rgba(255,255,255,.1);color:var(--ink-dim)}
+  .fmtoast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;border:1px solid var(--accent);opacity:0;transition:opacity .2s;pointer-events:none}
+  .fmtoast.show{opacity:1}
 </style>
 </head>
 <body>
@@ -134,12 +166,19 @@
         <h1 class="title">FM RUN</h1>
         <p class="sub">Tippe einen Helden<br>unten zum Wechseln</p>
         <button class="btn" id="btnStart">Spielen</button>
+        <button class="btn btn-secondary" id="btnBoard" type="button">🏆 Rangliste</button>
+        <div class="account" id="accountChip">
+          <span id="accountStatus">Nicht angemeldet</span>
+          <button class="linkbtn" id="btnAuth" type="button">Anmelden</button>
+          <button class="linkbtn hidden" id="btnSignOut" type="button">Abmelden</button>
+        </div>
         <div class="hint">v0.2 prototype</div>
       </div>
 
       <div class="center hidden gameover" id="screenOver">
         <h1 class="title">GAME<br>OVER</h1>
         <p class="sub" id="overText">0 m</p>
+        <div class="hint" id="overRank"></div>
         <button class="btn" id="btnRestart">Nochmal</button>
         <div class="hint">Tap zum<br>Neustart</div>
       </div>
@@ -186,6 +225,68 @@
       <button class="ctrlbtn" id="btnPause" aria-label="Pause">
         <img id="pauseIcon" src="./sprites/pause.png" alt="" width="22" height="22">
       </button>
+    </div>
+  </div>
+</div>
+
+<div class="fmmodal hidden" id="fmModal">
+  <div class="fmmodal-panel">
+    <button class="fmmodal-close" id="fmModalClose" type="button" aria-label="Schließen">✕</button>
+
+    <!-- View: E-Mail -->
+    <div class="fmview" data-view="auth-email">
+      <h2>Anmelden</h2>
+      <p class="fmnote">Wir schicken dir einen 6-stelligen Code per E-Mail.</p>
+      <input class="fminput" id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="email@beispiel.de">
+      <button class="btn" id="btnSendCode" type="button">Code senden</button>
+      <div class="fmerr" id="authEmailErr"></div>
+    </div>
+
+    <!-- View: Code -->
+    <div class="fmview hidden" data-view="auth-code">
+      <h2>Code eingeben</h2>
+      <p class="fmnote" id="authCodeNote">Code aus der E-Mail eingeben.</p>
+      <input class="fminput" id="authCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+      <button class="btn" id="btnVerifyCode" type="button">Bestätigen</button>
+      <button class="linkbtn" id="btnResendCode" type="button">Code erneut senden</button>
+      <div class="fmerr" id="authCodeErr"></div>
+    </div>
+
+    <!-- View: Handle -->
+    <div class="fmview hidden" data-view="auth-handle">
+      <h2>Handle wählen</h2>
+      <p class="fmnote">3–20 Zeichen: Buchstaben, Zahlen, _</p>
+      <input class="fminput" id="authHandle" type="text" maxlength="20" placeholder="dein_handle">
+      <button class="btn" id="btnSaveHandle" type="button">Speichern</button>
+      <div class="fmerr" id="authHandleErr"></div>
+    </div>
+
+    <!-- View: Rangliste -->
+    <div class="fmview hidden" data-view="board">
+      <h2>Rangliste</h2>
+      <div class="fmtabs">
+        <button class="fmtab active" id="tabFriends" type="button">Freunde</button>
+        <button class="fmtab" id="tabWorld" type="button">Weltweit</button>
+      </div>
+      <div class="fmlist" id="boardList"></div>
+      <button class="btn btn-secondary" id="btnFriends" type="button">Freunde verwalten</button>
+    </div>
+
+    <!-- View: Freunde -->
+    <div class="fmview hidden" data-view="friends">
+      <h2>Freunde</h2>
+      <div class="fmrow">
+        <input class="fminput" id="friendHandle" type="text" maxlength="20" placeholder="Handle hinzufügen">
+        <button class="btn" id="btnAddFriend" type="button">+</button>
+      </div>
+      <div class="fmerr" id="friendErr"></div>
+      <h3 class="fmsub">Anfragen</h3>
+      <div class="fmlist" id="requestList"></div>
+      <h3 class="fmsub">Gesendet</h3>
+      <div class="fmlist" id="sentList"></div>
+      <h3 class="fmsub">Deine Freunde</h3>
+      <div class="fmlist" id="friendList"></div>
+      <button class="linkbtn" id="btnBackBoard" type="button">← Zurück zur Rangliste</button>
     </div>
   </div>
 </div>
@@ -613,6 +714,8 @@ const LONG_RUN = new SpriteAnim({
   });
   // Tastatur 1..4 als Shortcut (Desktop-Test)
   window.addEventListener('keydown', (e) => {
+    const m = document.getElementById('fmModal');
+    if(m && !m.classList.contains('hidden')) return; // Ranking-Modal offen -> Tasten gehören dem Modal
     const map = { '1':'lou', '2':'sasch', '3':'shizzo', '4':'long' };
     if(map[e.key]) setActiveCharacter(map[e.key]);
   });
@@ -733,6 +836,8 @@ const LONG_RUN = new SpriteAnim({
   }
 
   window.addEventListener('keydown', (e)=>{
+    const m = document.getElementById('fmModal');
+    if(m && !m.classList.contains('hidden')) return; // Ranking-Modal offen -> Tasten gehören dem Modal
     if(e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Enter'){
       e.preventDefault();
       tryStart();
@@ -743,6 +848,8 @@ const LONG_RUN = new SpriteAnim({
     if(e.target.closest('.btn')) return;
     if(e.target.closest('.charslot')) return; // ganzer Char-Slot (Button + Name + Padding) -> eigener Handler
     if(e.target.closest('.ctrlbtn')) return;  // Pause/Play-Button -> eigener Handler
+    if(e.target.closest('#fmModal')) return; // Ranking-Modal handhabt sich selbst (inkl. Eingabefelder)
+    if(e.target.closest('.account')) return; // Account-Chip (Anmelden/Abmelden) startet nicht das Spiel
     e.preventDefault();
     tryStart();
   }
@@ -860,6 +967,7 @@ const LONG_RUN = new SpriteAnim({
     // Pause-Button im Game-Over verstecken + state zuruecksetzen
     resetPauseButtonUI();
     hidePauseButton();
+    try { window.FMRanking && window.FMRanking.submitScore(m); } catch(e){}
     puff(player.x + player.w/2, player.y + player.h/2, 24, true);
   }
 
@@ -2007,5 +2115,16 @@ const LONG_RUN = new SpriteAnim({
   });
 })();
 </script>
+
+<!-- ===== Ranking (Supabase) ===== -->
+<script>
+  // anon key ist öffentlich (RLS ist die Sicherheitsgrenze).
+  window.FMRUN_SUPABASE = {
+    url: 'https://xvvstubufnitlohcssud.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dnN0dWJ1Zm5pdGxvaGNzc3VkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NTUzNDAsImV4cCI6MjA5NTIzMTM0MH0.DQJv1pBvfPNpenMTGYafUQuEQijPAe-qfy4xAuKf-uY'
+  };
+</script>
+<script src="./vendor/supabase.min.js"></script>
+<script src="./ranking.js" defer></script>
 </body>
 </html>
