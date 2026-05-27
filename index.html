@@ -73,8 +73,8 @@
   .charbtn[data-char="shizzo"]{border-color:rgba(140,240,170,0.45)}
   .charbtn[data-char="shizzo"].active{border-color:var(--money);box-shadow:0 0 18px rgba(140,240,170,0.75),inset 0 0 0 1px rgba(140,240,170,0.55)}
   .charbtn[data-char="shizzo"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--money)}
-  /* Pause/Play -- ICON ONLY, mittig unterhalb der Namen. Wird im Game-Over/Ready via .hidden ausgeblendet. */
-  .controlrow{display:flex;justify-content:center;align-items:center;height:28px;flex:0 0 auto}
+  /* Controlrow: Mute + Pause/Play nebeneinander mittig. Hidden im Game-Over/Ready. */
+  .controlrow{display:flex;justify-content:center;align-items:center;height:28px;flex:0 0 auto;gap:14px}
   .ctrlbtn{pointer-events:auto;width:34px;height:28px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform .12s ease,filter .12s ease}
   .ctrlbtn img{image-rendering:pixelated;image-rendering:crisp-edges;width:22px;height:22px;display:block;pointer-events:none}
   .ctrlbtn:active{transform:scale(.88)}
@@ -106,14 +106,31 @@
   .hidden{display:none !important}
   .gameover .title{background:linear-gradient(90deg,var(--danger),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:8px;margin-left:8px;vertical-align:middle}
-  /* Mute/Unmute -- sitzt links neben den Lives in der Top-Bar, immer sichtbar (auch im Menue) */
-  .musicBtn{width:24px;height:24px;border:0;background:transparent;cursor:pointer;padding:0;pointer-events:auto;opacity:0.6;transition:opacity .15s ease,transform .12s ease;color:#e8ecff;display:flex;align-items:center;justify-content:center;margin-right:8px}
-  .musicBtn:active{transform:scale(.85)}
-  .musicBtn.muted{opacity:0.32}
+  /* Mute/Unmute -- sitzt in der Controlrow links neben dem Pause-Button (nur waehrend Gameplay sichtbar) */
+  .musicBtn{pointer-events:auto;width:34px;height:28px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform .12s ease,opacity .15s ease;color:#e8ecff;opacity:0.85}
+  .musicBtn:active{transform:scale(.88)}
+  .musicBtn.muted{opacity:0.4}
   .musicBtn svg{display:block;width:22px;height:22px;filter:drop-shadow(0 1px 0 rgba(0,0,0,0.7))}
   .musicBtn .iconOff{display:none}
   .musicBtn.muted .iconOn{display:none}
   .musicBtn.muted .iconOff{display:block}
+  /* Settings-Zahnrad oben rechts auf dem Start-Screen */
+  .settingsGear{position:absolute;top:max(14px,env(safe-area-inset-top));right:max(18px,env(safe-area-inset-right));width:32px;height:32px;border:0;background:transparent;cursor:pointer;padding:0;pointer-events:auto;color:#e8ecff;opacity:0.7;transition:opacity .15s ease,transform .15s ease;z-index:20}
+  .settingsGear:active{transform:rotate(45deg) scale(.9)}
+  .settingsGear:hover{opacity:1}
+  .settingsGear svg{display:block;width:26px;height:26px;filter:drop-shadow(0 1px 0 rgba(0,0,0,0.7))}
+  /* Settings-Modal -- voll-Screen Overlay mit Card */
+  .modal{position:absolute;inset:0;background:rgba(7,11,26,0.92);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:auto}
+  .modalCard{background:var(--bg-1);border:2px solid rgba(255,255,255,0.18);border-radius:8px;padding:22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:240px;max-width:340px;width:100%}
+  .modalTitle{font-family:var(--pixel);font-size:14px;letter-spacing:1px;color:var(--accent);text-align:center;margin:0;text-shadow:0 2px 0 rgba(0,0,0,0.7)}
+  .settingsRow{display:flex;justify-content:space-between;align-items:center;gap:14px}
+  .settingsLabel{font-family:var(--pixel);font-size:10px;color:var(--ink);text-shadow:0 1px 0 rgba(0,0,0,0.6)}
+  .toggleBtn{font-family:var(--pixel);font-size:10px;padding:8px 14px;border-radius:6px;background:var(--accent);color:#1a1a1a;border:0;cursor:pointer;letter-spacing:1px;min-width:60px;transition:transform .08s ease}
+  .toggleBtn:active{transform:scale(.94)}
+  .toggleBtn[data-on="false"]{background:rgba(255,255,255,0.12);color:var(--ink-dim)}
+  .btnSmall{padding:10px 18px;font-size:10px}
+  /* Secondary button (Home in Pause/GameOver) */
+  .btnSecondary{background:rgba(255,255,255,0.10) !important;color:var(--ink) !important;box-shadow:none !important;border:2px solid rgba(255,255,255,0.22) !important;margin-top:6px}
 </style>
 </head>
 <body>
@@ -132,10 +149,6 @@
           <span id="coinsValue">0</span>
         </div>
         <div class="lives" id="lives">
-          <button class="musicBtn" id="btnMute" aria-label="Mute">
-            <svg class="iconOn" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a2.5 2.5 0 0 0-1.5-2.3v4.6c.9-.4 1.5-1.3 1.5-2.3zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4.1-1 7-4.5 7-8.8s-2.9-7.8-7-8.8z"/></svg>
-            <svg class="iconOff" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.8-1-3.3-2.5-4v2.2l2.5 2.5c.04-.2.06-.4.06-.7zM19 12c0 .9-.2 1.8-.5 2.6l1.5 1.5c.7-1.2 1-2.6 1-4.1 0-4.3-3-7.9-7-8.8v2.1c2.9.9 5 3.5 5 6.7zM4.3 3L3 4.3 7.7 9H3v6h4l5 5v-6.7l4.2 4.2c-.7.5-1.4.9-2.2 1.1v2.1c1.4-.3 2.6-.9 3.7-1.7L19.7 21 21 19.7 12 10.7 4.3 3zM12 4L9.9 6.1 12 8.2V4z"/></svg>
-          </button>
           <span class="heart"></span>
           <span class="heart"></span>
           <span class="heart"></span>
@@ -147,18 +160,34 @@
         <p class="sub">Tippe einen Helden<br>unten zum Wechseln</p>
         <button class="btn" id="btnStart">Spielen</button>
         <div class="hint">v0.2 prototype</div>
+        <button class="settingsGear" id="btnSettings" aria-label="Einstellungen">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.5 7.5 0 0 0 .05-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.94 2h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88L2.82 14.16a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.04-1.6zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+        </button>
       </div>
 
       <div class="center hidden gameover" id="screenOver">
         <h1 class="title">GAME<br>OVER</h1>
         <p class="sub" id="overText">0 m</p>
         <button class="btn" id="btnRestart">Nochmal</button>
+        <button class="btn btnSecondary" id="btnOverHome">Home</button>
         <div class="hint">Tap zum<br>Neustart</div>
       </div>
 
       <div class="center hidden" id="screenPause">
         <h1 class="title">PAUSE</h1>
+        <button class="btn btnSecondary" id="btnPauseHome">Home</button>
         <div class="hint">Play-Button<br>zum Fortsetzen</div>
+      </div>
+
+      <div class="modal hidden" id="screenSettings">
+        <div class="modalCard">
+          <h2 class="modalTitle">EINSTELLUNGEN</h2>
+          <div class="settingsRow">
+            <span class="settingsLabel">Sound</span>
+            <button class="toggleBtn" id="modalSoundToggle" data-on="true">AN</button>
+          </div>
+          <button class="btn btnSmall" id="btnSettingsClose">OK</button>
+        </div>
       </div>
     </div>
   </div>
@@ -195,6 +224,10 @@
       </div>
     </div>
     <div class="controlrow hidden" id="controlRow">
+      <button class="musicBtn" id="btnMute" aria-label="Mute">
+        <svg class="iconOn" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a2.5 2.5 0 0 0-1.5-2.3v4.6c.9-.4 1.5-1.3 1.5-2.3zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4.1-1 7-4.5 7-8.8s-2.9-7.8-7-8.8z"/></svg>
+        <svg class="iconOff" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.8-1-3.3-2.5-4v2.2l2.5 2.5c.04-.2.06-.4.06-.7zM19 12c0 .9-.2 1.8-.5 2.6l1.5 1.5c.7-1.2 1-2.6 1-4.1 0-4.3-3-7.9-7-8.8v2.1c2.9.9 5 3.5 5 6.7zM4.3 3L3 4.3 7.7 9H3v6h4l5 5v-6.7l4.2 4.2c-.7.5-1.4.9-2.2 1.1v2.1c1.4-.3 2.6-.9 3.7-1.7L19.7 21 21 19.7 12 10.7 4.3 3zM12 4L9.9 6.1 12 8.2V4z"/></svg>
+      </button>
       <button class="ctrlbtn" id="btnPause" aria-label="Pause">
         <img id="pauseIcon" src="./sprites/pause.png" alt="" width="22" height="22">
       </button>
@@ -414,6 +447,11 @@
     if(currentTrack === 'menu') { try { audioMenu.play().catch(()=>{}); } catch(e){} }
     if(currentTrack === 'game') { try { audioGame.play().catch(()=>{}); } catch(e){} }
   }
+  function stopAllMusic(){
+    try { audioMenu.pause(); } catch(e){}
+    try { audioGame.pause(); } catch(e){}
+    currentTrack = null;
+  }
   function enableMusic(){
     if(musicEnabled) return;
     musicEnabled = true;
@@ -428,6 +466,8 @@
     musicMuted = !musicMuted;
     try { localStorage.setItem('fmrun_muted', musicMuted ? '1' : '0'); } catch(e){}
     applyMuteState();
+    // Modal-Toggle synchron halten falls offen
+    if(typeof updateModalSoundToggle === 'function') updateModalSoundToggle();
   }
   if(btnMute) btnMute.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -827,6 +867,8 @@ const LONG_RUN = new SpriteAnim({
     if(e.target.closest('.charslot')) return; // ganzer Char-Slot (Button + Name + Padding) -> eigener Handler
     if(e.target.closest('.ctrlbtn')) return;  // Pause/Play-Button -> eigener Handler
     if(e.target.closest('.musicBtn')) return; // Mute-Toggle -> eigener Handler
+    if(e.target.closest('.settingsGear')) return; // Settings-Zahnrad -> eigener Handler
+    if(e.target.closest('.modal')) return;    // Settings-Modal -> kein Start-Trigger
     e.preventDefault();
     tryStart();
   }
@@ -834,6 +876,37 @@ const LONG_RUN = new SpriteAnim({
 
   document.getElementById('btnStart').addEventListener('click', start);
   document.getElementById('btnRestart').addEventListener('click', start);
+  // Home-Buttons in Pause + Game-Over fuehren zurueck zum Start-Screen
+  document.getElementById('btnOverHome')?.addEventListener('click', (e) => { e.stopPropagation(); returnToStart(); });
+  document.getElementById('btnPauseHome')?.addEventListener('click', (e) => { e.stopPropagation(); returnToStart(); });
+
+  // ---------- Settings-Modal ----------
+  const screenSettings = document.getElementById('screenSettings');
+  const btnSettings = document.getElementById('btnSettings');
+  const btnSettingsClose = document.getElementById('btnSettingsClose');
+  const modalSoundToggle = document.getElementById('modalSoundToggle');
+  function updateModalSoundToggle(){
+    if(!modalSoundToggle) return;
+    const on = !musicMuted;
+    modalSoundToggle.dataset.on = on ? 'true' : 'false';
+    modalSoundToggle.textContent = on ? 'AN' : 'AUS';
+  }
+  function openSettings(){
+    enableMusic();
+    updateModalSoundToggle();
+    screenSettings?.classList.remove('hidden');
+  }
+  function closeSettings(){
+    screenSettings?.classList.add('hidden');
+  }
+  btnSettings?.addEventListener('click', (e) => { e.stopPropagation(); openSettings(); });
+  btnSettingsClose?.addEventListener('click', (e) => { e.stopPropagation(); closeSettings(); });
+  modalSoundToggle?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMute();
+    updateModalSoundToggle();
+  });
+  updateModalSoundToggle();
 
   // ---------- Pause / Resume ----------
   // Pause friert update(dt) ein -- Sidescroll, Spawning, Physik stehen still.
@@ -947,8 +1020,22 @@ const LONG_RUN = new SpriteAnim({
     // Pause-Button im Game-Over verstecken + state zuruecksetzen
     resetPauseButtonUI();
     hidePauseButton();
-    playMenuMusic(); // zurueck zur Menue-Musik
+    stopAllMusic(); // Game-Over bleibt stumm (kommt spaeter eigener Sound dazu)
     puff(player.x + player.w/2, player.y + player.h/2, 24, true);
+  }
+
+  // Zurueck zum Start-Screen (Home) -- ausgeloest durch Home-Buttons im Pause + Game-Over.
+  function returnToStart(){
+    state = STATE.READY;
+    paused = false;
+    document.getElementById('screenOver').classList.add('hidden');
+    document.getElementById('screenPause').classList.add('hidden');
+    document.getElementById('screenStart').classList.remove('hidden');
+    reset();
+    resetPauseButtonUI();
+    hidePauseButton();
+    // Menue-Musik wieder anwerfen (falls vorher Game-Music lief oder gestoppt war)
+    playMenuMusic();
   }
 
   // ---------- spawning ----------
