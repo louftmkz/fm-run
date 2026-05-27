@@ -8,8 +8,6 @@ const PRECACHE = [
   './index.html',
   './install.html',
   './qr-install.png',
-  './ranking.js',
-  './vendor/supabase.min.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -44,13 +42,16 @@ const PRECACHE = [
   './sprites/pause.png',
   './sprites/play.png',
   './sprites/heart-empty.png',
-  './sprites/heart-full.png'
+  './sprites/heart-full.png',
+  './music/menu.mp3',
+  './music/gameplay.mp3'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
