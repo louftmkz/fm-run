@@ -2,12 +2,14 @@
 // Strategy: cache-first für statische Assets, network-first für HTML (damit Updates beim
 // neuen Deploy schnell durchkommen).
 
-const CACHE_NAME = 'fm-run-v25';
+const CACHE_NAME = 'fm-run-v26';
 const PRECACHE = [
   './',
   './index.html',
   './install.html',
   './qr-install.png',
+  './ranking.js',
+  './vendor/supabase.min.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -49,9 +51,8 @@ const PRECACHE = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

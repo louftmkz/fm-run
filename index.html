@@ -73,12 +73,33 @@
   .charbtn[data-char="shizzo"]{border-color:rgba(140,240,170,0.45)}
   .charbtn[data-char="shizzo"].active{border-color:var(--money);box-shadow:0 0 18px rgba(140,240,170,0.75),inset 0 0 0 1px rgba(140,240,170,0.55)}
   .charbtn[data-char="shizzo"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--money)}
-  /* Controlrow: Mute + Pause/Play nebeneinander mittig. Hidden im Game-Over/Ready. */
-  .controlrow{display:flex;justify-content:center;align-items:center;height:28px;flex:0 0 auto;gap:14px}
+  /* Controlrow: IMMER vorhanden mit fixer Hoehe -> Charnav springt nie.
+     - Pause-Button centered via flex
+     - Mute + Settings absolut links (gleiche Y wie Pause) */
+  .controlrow{display:flex;justify-content:center;align-items:center;height:28px;flex:0 0 auto;position:relative}
   .ctrlbtn{pointer-events:auto;width:34px;height:28px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform .12s ease,filter .12s ease}
   .ctrlbtn img{image-rendering:pixelated;image-rendering:crisp-edges;width:22px;height:22px;display:block;pointer-events:none}
   .ctrlbtn:active{transform:scale(.88)}
   .ctrlbtn.paused img{filter:drop-shadow(0 0 6px rgba(255,204,51,0.85))}
+  /* Mute + Settings: absolut links in der Controlrow, gleiche Hoehe wie Pause */
+  .musicBtn,.settingsGear{
+    position:absolute;
+    left:max(14px,env(safe-area-inset-left));
+    top:50%;transform:translateY(-50%);
+    width:34px;height:28px;
+    border:0;background:transparent;padding:0;cursor:pointer;pointer-events:auto;
+    color:#e8ecff;opacity:0.85;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .12s ease,opacity .15s ease;
+    z-index:5
+  }
+  .musicBtn:active{transform:translateY(-50%) scale(.88)}
+  .settingsGear:active{transform:translateY(-50%) rotate(45deg) scale(.88)}
+  .musicBtn.muted{opacity:0.4}
+  .musicBtn svg,.settingsGear svg{display:block;width:22px;height:22px;filter:drop-shadow(0 1px 0 rgba(0,0,0,0.7))}
+  .musicBtn .iconOff{display:none}
+  .musicBtn.muted .iconOn{display:none}
+  .musicBtn.muted .iconOff{display:block}
   .top{display:flex;justify-content:space-between;align-items:flex-start;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));letter-spacing:.5px;gap:12px}
   .charnav{padding-bottom:max(12px,env(safe-area-inset-bottom))}
   .scoreCol{display:flex;flex-direction:column;gap:4px;flex:1;text-align:left}
@@ -106,27 +127,7 @@
   .hidden{display:none !important}
   .gameover .title{background:linear-gradient(90deg,var(--danger),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:8px;margin-left:8px;vertical-align:middle}
-  /* Mute + Settings sitzen an exakt der gleichen Position: bottom-right edge des Wraps
-     mit ausreichend Padding zum Rand. State-abhaengige Sichtbarkeit:
-     - .settingsGear: nur im READY-State (Start-Screen)
-     - .musicBtn: nur waehrend Gameplay (PLAYING/SLIDING/FALLING) */
-  .musicBtn,.settingsGear{
-    position:absolute;
-    right:max(18px,env(safe-area-inset-right));
-    bottom:max(26px,calc(env(safe-area-inset-bottom) + 16px));
-    width:34px;height:34px;border:0;background:transparent;padding:0;cursor:pointer;pointer-events:auto;
-    color:#e8ecff;opacity:0.85;z-index:25;
-    display:flex;align-items:center;justify-content:center;
-    transition:transform .12s ease,opacity .15s ease
-  }
-  .musicBtn:active,.settingsGear:active{transform:scale(.88)}
-  .settingsGear:active{transform:rotate(45deg) scale(.88)}
-  .musicBtn.muted{opacity:0.4}
-  .musicBtn svg,.settingsGear svg{display:block;width:24px;height:24px;filter:drop-shadow(0 1px 0 rgba(0,0,0,0.7))}
-  .musicBtn .iconOff{display:none}
-  .musicBtn.muted .iconOn{display:none}
-  .musicBtn.muted .iconOff{display:block}
-  /* Settings-Modal -- voll-Screen Overlay mit Card */
+  /* Settings-Modal (Sound an/aus). Eigenstaendig, parallel zum Ranking-Modal (fmModal). */
   .modal{position:absolute;inset:0;background:rgba(7,11,26,0.92);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:auto}
   .modalCard{background:var(--bg-1);border:2px solid rgba(255,255,255,0.18);border-radius:8px;padding:22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:240px;max-width:340px;width:100%}
   .modalTitle{font-family:var(--pixel);font-size:14px;letter-spacing:1px;color:var(--accent);text-align:center;margin:0;text-shadow:0 2px 0 rgba(0,0,0,0.7)}
@@ -136,8 +137,40 @@
   .toggleBtn:active{transform:scale(.94)}
   .toggleBtn[data-on="false"]{background:rgba(255,255,255,0.12);color:var(--ink-dim)}
   .btnSmall{padding:10px 18px;font-size:10px}
-  /* Secondary button (Home in Pause/GameOver) */
-  .btnSecondary{background:rgba(255,255,255,0.10) !important;color:var(--ink) !important;box-shadow:none !important;border:2px solid rgba(255,255,255,0.22) !important;margin-top:6px}
+  /* Home-Button in Pause/GameOver: transparent + outline statt voller Accent-Fill */
+  .btnHome{background:rgba(255,255,255,0.10) !important;color:var(--ink) !important;box-shadow:none !important;border:2px solid rgba(255,255,255,0.22) !important;margin-top:6px}
+  /* ===== Ranking UI ===== */
+  .btn-secondary{background:transparent;color:var(--accent);box-shadow:none;border:2px solid var(--accent);margin-top:12px}
+  .account{margin-top:18px;font-size:13px;color:var(--ink-dim);display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .linkbtn{pointer-events:auto;background:none;border:0;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline;padding:0}
+  .fmmodal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72);padding:18px;pointer-events:auto}
+  .fmmodal-panel{position:relative;width:100%;max-width:380px;max-height:88vh;overflow-y:auto;background:var(--bg-0,#15151b);border:2px solid var(--accent);border-radius:14px;padding:24px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .fmmodal-close{position:absolute;top:10px;right:12px;background:none;border:0;color:var(--ink-dim);font-size:20px;cursor:pointer}
+  .fmview h2{font-family:'Press Start 2P',system-ui,sans-serif;font-size:15px;color:var(--accent);margin:0 0 14px;letter-spacing:1px}
+  .fmsub{font-family:'Press Start 2P',system-ui,sans-serif;font-size:10px;color:var(--ink-dim);margin:18px 0 8px;letter-spacing:1px}
+  .fmnote{color:var(--ink-dim);font-size:13px;margin:0 0 12px}
+  .fminput{width:100%;box-sizing:border-box;padding:12px 14px;margin:0 0 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:var(--ink,#fff);font-size:16px;pointer-events:auto}
+  .fminput:focus{outline:none;border-color:var(--accent)}
+  .fmerr{color:var(--danger,#ff5566);font-size:13px;min-height:18px;margin-top:6px}
+  .fmrow{display:flex;gap:8px;align-items:flex-start}
+  .fmrow .fminput{flex:1}
+  .fmrow .btn{padding:12px 18px}
+  .fmtabs{display:flex;gap:8px;margin-bottom:12px}
+  .fmtab{flex:1;pointer-events:auto;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:transparent;color:var(--ink-dim);font:inherit;font-weight:700;cursor:pointer}
+  .fmtab.active{border-color:var(--accent);color:var(--accent);background:rgba(255,204,51,.08)}
+  .fmlist{display:flex;flex-direction:column;gap:6px;min-height:24px}
+  .fmlist-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,.05);font-size:14px}
+  .fmlist-row.me{background:rgba(255,204,51,.14);border:1px solid rgba(255,204,51,.4)}
+  .fmlist-row .rank{width:34px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+  .fmlist-row .who{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fmlist-row .dist{font-variant-numeric:tabular-nums;color:var(--accent)}
+  .fmlist-row .act{display:flex;gap:6px}
+  .fmlist-empty{color:var(--ink-dim);font-size:13px;padding:8px 2px}
+  .fmminibtn{pointer-events:auto;border:0;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
+  .fmminibtn.ok{background:var(--accent);color:#1a1a1a}
+  .fmminibtn.no{background:rgba(255,255,255,.1);color:var(--ink-dim)}
+  .fmtoast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;border:1px solid var(--accent);opacity:0;transition:opacity .2s;pointer-events:none}
+  .fmtoast.show{opacity:1}
 </style>
 </head>
 <body>
@@ -166,20 +199,27 @@
         <h1 class="title">FM RUN</h1>
         <p class="sub">Tippe einen Helden<br>unten zum Wechseln</p>
         <button class="btn" id="btnStart">Spielen</button>
+        <button class="btn btn-secondary" id="btnBoard" type="button">🏆 Rangliste</button>
+        <div class="account" id="accountChip">
+          <span id="accountStatus">Nicht angemeldet</span>
+          <button class="linkbtn" id="btnAuth" type="button">Anmelden</button>
+          <button class="linkbtn hidden" id="btnSignOut" type="button">Abmelden</button>
+        </div>
         <div class="hint">v0.2 prototype</div>
       </div>
 
       <div class="center hidden gameover" id="screenOver">
         <h1 class="title">GAME<br>OVER</h1>
         <p class="sub" id="overText">0 m</p>
+        <div class="hint" id="overRank"></div>
         <button class="btn" id="btnRestart">Nochmal</button>
-        <button class="btn btnSecondary" id="btnOverHome">Home</button>
+        <button class="btn btnHome" id="btnOverHome">Home</button>
         <div class="hint">Tap zum<br>Neustart</div>
       </div>
 
       <div class="center hidden" id="screenPause">
         <h1 class="title">PAUSE</h1>
-        <button class="btn btnSecondary" id="btnPauseHome">Home</button>
+        <button class="btn btnHome" id="btnPauseHome">Home</button>
         <div class="hint">Play-Button<br>zum Fortsetzen</div>
       </div>
 
@@ -227,21 +267,76 @@
         <div class="charname">LonG</div>
       </div>
     </div>
-    <div class="controlrow hidden" id="controlRow">
-      <button class="ctrlbtn" id="btnPause" aria-label="Pause">
+    <div class="controlrow" id="controlRow">
+      <button class="musicBtn hidden" id="btnMute" aria-label="Mute">
+        <svg class="iconOn" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a2.5 2.5 0 0 0-1.5-2.3v4.6c.9-.4 1.5-1.3 1.5-2.3zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4.1-1 7-4.5 7-8.8s-2.9-7.8-7-8.8z"/></svg>
+        <svg class="iconOff" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.8-1-3.3-2.5-4v2.2l2.5 2.5c.04-.2.06-.4.06-.7zM19 12c0 .9-.2 1.8-.5 2.6l1.5 1.5c.7-1.2 1-2.6 1-4.1 0-4.3-3-7.9-7-8.8v2.1c2.9.9 5 3.5 5 6.7zM4.3 3L3 4.3 7.7 9H3v6h4l5 5v-6.7l4.2 4.2c-.7.5-1.4.9-2.2 1.1v2.1c1.4-.3 2.6-.9 3.7-1.7L19.7 21 21 19.7 12 10.7 4.3 3zM12 4L9.9 6.1 12 8.2V4z"/></svg>
+      </button>
+      <button class="settingsGear" id="btnSettings" aria-label="Einstellungen">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.5 7.5 0 0 0 .05-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.94 2h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88L2.82 14.16a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.04-1.6zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+      </button>
+      <button class="ctrlbtn hidden" id="btnPause" aria-label="Pause">
         <img id="pauseIcon" src="./sprites/pause.png" alt="" width="22" height="22">
       </button>
     </div>
   </div>
+</div>
 
-  <!-- Mute + Settings sitzen an gleicher Position (bottom-right edge des Wraps), state-abhaengig sichtbar -->
-  <button class="musicBtn hidden" id="btnMute" aria-label="Mute">
-    <svg class="iconOn" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a2.5 2.5 0 0 0-1.5-2.3v4.6c.9-.4 1.5-1.3 1.5-2.3zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4.1-1 7-4.5 7-8.8s-2.9-7.8-7-8.8z"/></svg>
-    <svg class="iconOff" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.8-1-3.3-2.5-4v2.2l2.5 2.5c.04-.2.06-.4.06-.7zM19 12c0 .9-.2 1.8-.5 2.6l1.5 1.5c.7-1.2 1-2.6 1-4.1 0-4.3-3-7.9-7-8.8v2.1c2.9.9 5 3.5 5 6.7zM4.3 3L3 4.3 7.7 9H3v6h4l5 5v-6.7l4.2 4.2c-.7.5-1.4.9-2.2 1.1v2.1c1.4-.3 2.6-.9 3.7-1.7L19.7 21 21 19.7 12 10.7 4.3 3zM12 4L9.9 6.1 12 8.2V4z"/></svg>
-  </button>
-  <button class="settingsGear" id="btnSettings" aria-label="Einstellungen">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.5 7.5 0 0 0 .05-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.94 2h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88L2.82 14.16a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.04-1.6zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
-  </button>
+<div class="fmmodal hidden" id="fmModal">
+  <div class="fmmodal-panel">
+    <button class="fmmodal-close" id="fmModalClose" type="button" aria-label="Schließen">✕</button>
+
+    <!-- View: Registrierung -->
+    <div class="fmview" data-view="auth-signup">
+      <h2>Registrieren</h2>
+      <p class="fmnote">Handle: 3–20 Zeichen (A-Z, 0-9, _) · Passwort: mind. 6 Zeichen</p>
+      <input class="fminput" id="signupHandle" type="text" maxlength="20" placeholder="dein_handle" autocomplete="username">
+      <input class="fminput" id="signupPassword" type="password" minlength="6" placeholder="Passwort" autocomplete="new-password">
+      <input class="fminput" id="signupPasswordConfirm" type="password" minlength="6" placeholder="Passwort bestätigen" autocomplete="new-password">
+      <button class="btn" id="btnSignUp" type="button">Registrieren</button>
+      <button class="linkbtn" id="btnToLogin" type="button">Bereits registriert? → Anmelden</button>
+      <div class="fmerr" id="signupErr"></div>
+    </div>
+
+    <!-- View: Anmeldung -->
+    <div class="fmview hidden" data-view="auth-login">
+      <h2>Anmelden</h2>
+      <p class="fmnote">Melde dich mit deinem Handle und Passwort an.</p>
+      <input class="fminput" id="loginHandle" type="text" maxlength="20" placeholder="dein_handle" autocomplete="username">
+      <input class="fminput" id="loginPassword" type="password" placeholder="Passwort" autocomplete="current-password">
+      <button class="btn" id="btnSignIn" type="button">Anmelden</button>
+      <button class="linkbtn" id="btnToSignup" type="button">Noch kein Account? → Registrieren</button>
+      <div class="fmerr" id="loginErr"></div>
+    </div>
+
+    <!-- View: Rangliste -->
+    <div class="fmview hidden" data-view="board">
+      <h2>Rangliste</h2>
+      <div class="fmtabs">
+        <button class="fmtab active" id="tabFriends" type="button">Freunde</button>
+        <button class="fmtab" id="tabWorld" type="button">Weltweit</button>
+      </div>
+      <div class="fmlist" id="boardList"></div>
+      <button class="btn btn-secondary" id="btnFriends" type="button">Freunde verwalten</button>
+    </div>
+
+    <!-- View: Freunde -->
+    <div class="fmview hidden" data-view="friends">
+      <h2>Freunde</h2>
+      <div class="fmrow">
+        <input class="fminput" id="friendHandle" type="text" maxlength="20" placeholder="Handle hinzufügen">
+        <button class="btn" id="btnAddFriend" type="button">+</button>
+      </div>
+      <div class="fmerr" id="friendErr"></div>
+      <h3 class="fmsub">Anfragen</h3>
+      <div class="fmlist" id="requestList"></div>
+      <h3 class="fmsub">Gesendet</h3>
+      <div class="fmlist" id="sentList"></div>
+      <h3 class="fmsub">Deine Freunde</h3>
+      <div class="fmlist" id="friendList"></div>
+      <button class="linkbtn" id="btnBackBoard" type="button">← Zurück zur Rangliste</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -409,30 +504,50 @@
   }
   updateLivesDisplay();
 
+  // ---------- Life-Loss Feedback ----------
+  // Branchen-Standard-Combo bei Life-Loss (wie Mario/Sonic/Mega Man):
+  //  * Hit-Pause: 400ms Game-Freeze (update() skip) -- der Treffer wirkt wuchtig
+  //  * Player-Blink: 5x sichtbar/unsichtbar waehrend Freeze
+  //  * Screen-Flash: roter Vollbild-Overlay, der pulsiert + ausfadet
+  //  * Heart-Shake: das Lives-UI schuettelt sich
+  //  * Danach 1.5s Invincibility-Flicker wie bisher
+  // Real-Time basiert (performance.now()) damit Animation auch waehrend Game-Freeze laeuft.
+  let hitPauseRealUntil = 0;   // performance.now() Stempel: bis wann update() pausiert
+  let hitFlashRealStart = 0;   // performance.now() Stempel: wann der Flash startet
+  let hitFlashRealUntil = 0;   // performance.now() Stempel: wann der Flash endet
+  function triggerLifeLossFeedback(){
+    const now = performance.now();
+    hitPauseRealUntil = now + 400;
+    hitFlashRealStart = now;
+    hitFlashRealUntil = now + 500;
+    // Heart-Shake -- CSS-Klasse 400ms an, dann wieder ab
+    const livesEl = document.getElementById('lives');
+    livesEl.classList.remove('shake'); // reflow um Re-Trigger zu erlauben
+    void livesEl.offsetWidth;
+    livesEl.classList.add('shake');
+    setTimeout(() => livesEl.classList.remove('shake'), 500);
+  }
+  function isHitPaused(){ return performance.now() < hitPauseRealUntil; }
+
   // ---------- Musik-System ----------
-  // Zwei Loops: menu.mp3 (Start/GameOver Screen), gameplay.mp3 (PLAYING/SLIDING/FALLING).
-  // Browser-Autoplay-Policy: play() ist erst nach erstem User-Tap erlaubt -> wir hooken
-  // enableMusic() in onPointer (siehe unten). Mute-State persistiert in localStorage.
+  // menu.mp3 (Start), gameplay.mp3 (PLAYING/SLIDING/FALLING). Game-Over bleibt stumm (kommt spaeter).
+  // Autoplay-Restriction: enableMusic() wird beim ersten User-Tap aufgerufen.
   const MUSIC_VOL = 0.4;
   const audioMenu = new Audio('./music/menu.mp3');
-  audioMenu.loop = true;
-  audioMenu.volume = MUSIC_VOL;
-  audioMenu.preload = 'auto';
+  audioMenu.loop = true; audioMenu.volume = MUSIC_VOL; audioMenu.preload = 'auto';
   const audioGame = new Audio('./music/gameplay.mp3');
-  audioGame.loop = true;
-  audioGame.volume = MUSIC_VOL;
-  audioGame.preload = 'auto';
+  audioGame.loop = true; audioGame.volume = MUSIC_VOL; audioGame.preload = 'auto';
   let musicMuted = false;
   try { musicMuted = localStorage.getItem('fmrun_muted') === '1'; } catch(e){}
-  let currentTrack = null;        // 'menu' | 'game' | null
-  let musicEnabled = false;       // true ab erstem User-Tap (Autoplay-Workaround)
-  const btnMute = document.getElementById('btnMute');
+  let currentTrack = null;
+  let musicEnabled = false;
   function applyMuteState(){
     audioMenu.muted = musicMuted;
     audioGame.muted = musicMuted;
-    if(btnMute){
-      btnMute.classList.toggle('muted', musicMuted);
-      btnMute.setAttribute('aria-label', musicMuted ? 'Unmute' : 'Mute');
+    const btn = document.getElementById('btnMute');
+    if(btn){
+      btn.classList.toggle('muted', musicMuted);
+      btn.setAttribute('aria-label', musicMuted ? 'Unmute' : 'Mute');
     }
   }
   function playMenuMusic(){
@@ -464,7 +579,6 @@
   function enableMusic(){
     if(musicEnabled) return;
     musicEnabled = true;
-    // Aktuellen State respektieren: im PLAYING/SLIDING/FALLING -> Gameplay, sonst Menue
     if(typeof state !== 'undefined' && (state === STATE.PLAYING || state === STATE.SLIDING || state === STATE.FALLING)){
       playGameMusic();
     } else {
@@ -475,40 +589,9 @@
     musicMuted = !musicMuted;
     try { localStorage.setItem('fmrun_muted', musicMuted ? '1' : '0'); } catch(e){}
     applyMuteState();
-    // Modal-Toggle synchron halten falls offen
     if(typeof updateModalSoundToggle === 'function') updateModalSoundToggle();
   }
-  if(btnMute) btnMute.addEventListener('click', (e) => {
-    e.stopPropagation();
-    enableMusic();   // erlaubt auch dass User direkt den Mute-Button als ersten Tap nimmt
-    toggleMute();
-  });
   applyMuteState();
-
-  // ---------- Life-Loss Feedback ----------
-  // Branchen-Standard-Combo bei Life-Loss (wie Mario/Sonic/Mega Man):
-  //  * Hit-Pause: 400ms Game-Freeze (update() skip) -- der Treffer wirkt wuchtig
-  //  * Player-Blink: 5x sichtbar/unsichtbar waehrend Freeze
-  //  * Screen-Flash: roter Vollbild-Overlay, der pulsiert + ausfadet
-  //  * Heart-Shake: das Lives-UI schuettelt sich
-  //  * Danach 1.5s Invincibility-Flicker wie bisher
-  // Real-Time basiert (performance.now()) damit Animation auch waehrend Game-Freeze laeuft.
-  let hitPauseRealUntil = 0;   // performance.now() Stempel: bis wann update() pausiert
-  let hitFlashRealStart = 0;   // performance.now() Stempel: wann der Flash startet
-  let hitFlashRealUntil = 0;   // performance.now() Stempel: wann der Flash endet
-  function triggerLifeLossFeedback(){
-    const now = performance.now();
-    hitPauseRealUntil = now + 400;
-    hitFlashRealStart = now;
-    hitFlashRealUntil = now + 500;
-    // Heart-Shake -- CSS-Klasse 400ms an, dann wieder ab
-    const livesEl = document.getElementById('lives');
-    livesEl.classList.remove('shake'); // reflow um Re-Trigger zu erlauben
-    void livesEl.offsetWidth;
-    livesEl.classList.add('shake');
-    setTimeout(() => livesEl.classList.remove('shake'), 500);
-  }
-  function isHitPaused(){ return performance.now() < hitPauseRealUntil; }
 
   // ---------- Sprite-System (generisch, fuer Helden-Animationen) ----------
   // Wiederverwendbar fuer weitere Helden / Animations-States (jump, slide, idle).
@@ -743,6 +826,8 @@ const LONG_RUN = new SpriteAnim({
   });
   // Tastatur 1..4 als Shortcut (Desktop-Test)
   window.addEventListener('keydown', (e) => {
+    const m = document.getElementById('fmModal');
+    if(m && !m.classList.contains('hidden')) return; // Ranking-Modal offen -> Tasten gehören dem Modal
     const map = { '1':'lou', '2':'sasch', '3':'shizzo', '4':'long' };
     if(map[e.key]) setActiveCharacter(map[e.key]);
   });
@@ -863,9 +948,13 @@ const LONG_RUN = new SpriteAnim({
   }
 
   window.addEventListener('keydown', (e)=>{
+    const m = document.getElementById('fmModal');
+    if(m && !m.classList.contains('hidden')) return; // Ranking-Modal offen -> Tasten gehören dem Modal
+    const sm = document.getElementById('screenSettings');
+    if(sm && !sm.classList.contains('hidden')) return; // Settings-Modal offen -> Tasten ignorieren
     if(e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Enter'){
       e.preventDefault();
-      enableMusic(); // Keyboard zaehlt auch als User-Gesture fuer Autoplay
+      enableMusic(); // Keyboard zaehlt als User-Gesture fuer Autoplay
       tryStart();
     }
   });
@@ -878,6 +967,8 @@ const LONG_RUN = new SpriteAnim({
     if(e.target.closest('.musicBtn')) return; // Mute-Toggle -> eigener Handler
     if(e.target.closest('.settingsGear')) return; // Settings-Zahnrad -> eigener Handler
     if(e.target.closest('.modal')) return;    // Settings-Modal -> kein Start-Trigger
+    if(e.target.closest('#fmModal')) return; // Ranking-Modal handhabt sich selbst (inkl. Eingabefelder)
+    if(e.target.closest('.account')) return; // Account-Chip (Anmelden/Abmelden) startet nicht das Spiel
     e.preventDefault();
     tryStart();
   }
@@ -889,7 +980,7 @@ const LONG_RUN = new SpriteAnim({
   document.getElementById('btnOverHome')?.addEventListener('click', (e) => { e.stopPropagation(); returnToStart(); });
   document.getElementById('btnPauseHome')?.addEventListener('click', (e) => { e.stopPropagation(); returnToStart(); });
 
-  // ---------- Settings-Modal ----------
+  // ---------- Settings-Modal (Sound an/aus) ----------
   const screenSettings = document.getElementById('screenSettings');
   const btnSettings = document.getElementById('btnSettings');
   const btnSettingsClose = document.getElementById('btnSettingsClose');
@@ -933,14 +1024,19 @@ const LONG_RUN = new SpriteAnim({
     pauseBtn.setAttribute('aria-label', 'Pause');
     screenPause.classList.add('hidden');
   }
-  function showPauseButton(){ controlRow.classList.remove('hidden'); }
-  function hidePauseButton(){ controlRow.classList.add('hidden'); }
-  // Mute-Button + Settings-Gear sind an gleicher Position; state-abhaengig sichtbar.
-  // READY -> Settings sichtbar, Mute hidden. PLAYING -> Mute sichtbar, Settings hidden. OVER -> beide hidden.
+  // Controlrow IST IMMER da (fixed Hoehe). Wir blenden nur die einzelnen Buttons aus.
+  function showPauseButton(){ document.getElementById('btnPause').classList.remove('hidden'); }
+  function hidePauseButton(){ document.getElementById('btnPause').classList.add('hidden'); }
   function showMuteButton(){ document.getElementById('btnMute').classList.remove('hidden'); }
   function hideMuteButton(){ document.getElementById('btnMute').classList.add('hidden'); }
   function showSettingsGear(){ document.getElementById('btnSettings').classList.remove('hidden'); }
   function hideSettingsGear(){ document.getElementById('btnSettings').classList.add('hidden'); }
+  // Mute-Button Click
+  document.getElementById('btnMute').addEventListener('click', (e) => {
+    e.stopPropagation();
+    enableMusic();
+    toggleMute();
+  });
   function togglePause(){
     // Nur waehrend aktiven Spielzustaenden pausierbar
     if(state !== STATE.PLAYING && state !== STATE.SLIDING && state !== STATE.FALLING){
@@ -997,8 +1093,22 @@ const LONG_RUN = new SpriteAnim({
     hideSettingsGear();   // Settings-Gear weg waehrend Gameplay
     showMuteButton();     // Mute-Button rein (gleiche Stelle wie Gear)
     state = STATE.PLAYING;
-    enableMusic();        // beim ersten Spiel-Start Musik freischalten (falls noch nicht)
-    playGameMusic();      // Gameplay-Track starten / fortsetzen
+    enableMusic();
+    playGameMusic();
+  }
+  // Zurueck zum Start-Screen (Home-Buttons in Pause + Game-Over)
+  function returnToStart(){
+    state = STATE.READY;
+    paused = false;
+    document.getElementById('screenOver').classList.add('hidden');
+    document.getElementById('screenPause').classList.add('hidden');
+    document.getElementById('screenStart').classList.remove('hidden');
+    reset();
+    resetPauseButtonUI();
+    hidePauseButton();
+    hideMuteButton();
+    showSettingsGear();
+    playMenuMusic();
   }
   // Wird beim "ich waere jetzt tot"-Event aufgerufen. Wenn Lives > 0: Life weg, kurze
   // Unverwundbarkeit + Respawn. Sonst: echtes Game Over.
@@ -1034,28 +1144,13 @@ const LONG_RUN = new SpriteAnim({
     updateBestDisplay();
     document.getElementById('overText').textContent = m + ' m   ' + (wasBest ? 'new best!' : 'Best: ' + best + ' m');
     document.getElementById('screenOver').classList.remove('hidden');
-    // Pause-Button + Mute im Game-Over verstecken (Settings ist sowieso schon hidden)
+    // Pause + Mute im Game-Over verstecken (Settings ist sowieso schon hidden)
     resetPauseButtonUI();
     hidePauseButton();
     hideMuteButton();
     stopAllMusic(); // Game-Over bleibt stumm (kommt spaeter eigener Sound dazu)
+    try { window.FMRanking && window.FMRanking.submitScore(m); } catch(e){}
     puff(player.x + player.w/2, player.y + player.h/2, 24, true);
-  }
-
-  // Zurueck zum Start-Screen (Home) -- ausgeloest durch Home-Buttons im Pause + Game-Over.
-  function returnToStart(){
-    state = STATE.READY;
-    paused = false;
-    document.getElementById('screenOver').classList.add('hidden');
-    document.getElementById('screenPause').classList.add('hidden');
-    document.getElementById('screenStart').classList.remove('hidden');
-    reset();
-    resetPauseButtonUI();
-    hidePauseButton();
-    hideMuteButton();
-    showSettingsGear();  // im Start-Screen ist das Gear wieder sichtbar
-    // Menue-Musik wieder anwerfen (falls vorher Game-Music lief oder gestoppt war)
-    playMenuMusic();
   }
 
   // ---------- spawning ----------
@@ -2202,5 +2297,16 @@ const LONG_RUN = new SpriteAnim({
   });
 })();
 </script>
+
+<!-- ===== Ranking (Supabase) ===== -->
+<script>
+  // anon key ist öffentlich (RLS ist die Sicherheitsgrenze).
+  window.FMRUN_SUPABASE = {
+    url: 'https://xvvstubufnitlohcssud.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dnN0dWJ1Zm5pdGxvaGNzc3VkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NTUzNDAsImV4cCI6MjA5NTIzMTM0MH0.DQJv1pBvfPNpenMTGYafUQuEQijPAe-qfy4xAuKf-uY'
+  };
+</script>
+<script src="./vendor/supabase.min.js"></script>
+<script src="./ranking.js" defer></script>
 </body>
 </html>
