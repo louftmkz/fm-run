@@ -380,6 +380,9 @@
   let state = STATE.READY;
   let lastT = 0;
   let timeAlive = 0;
+  // renderTime laeuft IMMER (auch in OVER + waehrend Pause), damit ambient Sprites
+  // (Coins, 1UPs) auch im Dead-Screen sichtbar weiteranimieren. timeAlive bleibt fuer Gameplay.
+  let renderTime = 0;
   let distance = 0;          // in meters (score)
   let speed = 0;             // px/sec horizontal world speed
   // Speed pro Etage (Index = Level 0..MAX_LEVEL)
@@ -592,6 +595,16 @@
     if(typeof updateModalSoundToggle === 'function') updateModalSoundToggle();
   }
   applyMuteState();
+  // Page Visibility API: Musik pausiert wenn App in den Hintergrund geht (Tab/App-Wechsel).
+  // Resume nur wenn User vorher NICHT manuell pausiert hatte (sonst respektieren wir das).
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      pauseCurrentMusic();
+    } else {
+      if(typeof paused !== 'undefined' && paused) return; // User-Pause beibehalten
+      resumeCurrentMusic();
+    }
+  });
 
   // ---------- Sprite-System (generisch, fuer Helden-Animationen) ----------
   // Wiederverwendbar fuer weitere Helden / Animations-States (jump, slide, idle).
@@ -728,6 +741,18 @@ const LONG_RUN = new SpriteAnim({
   const LEVEL_COIN_SPRITES = [null, COIN_SPRITE_1, COIN_SPRITE_1, COIN_SPRITE_1, COIN_SPRITE_STACK, COIN_SPRITE_BAG, COIN_SPRITE_CASE, COIN_SPRITE_POT];
   const LEVEL_OBSTACLE_SPRITES = [
     null, null, null, null, null, null, null, null
+  ];
+  // Per-Level Ramp-Sprites (Parallelogramm 220x192). null = procedural Fallback.
+  // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
+  const LEVEL_RAMP_SPRITES = [
+    null,                       // 0 Underground
+    null,                       // 1 Gutter & Ghetto
+    './sprites/ramp-level-1.png', // 2 Training Room (START) -- erstes Ramp-Design
+    null,                       // 3 Night Club
+    null,                       // 4 Battle Ground
+    null,                       // 5 TV Studio
+    null,                       // 6 Theater Stage
+    null                        // 7 Spaceship
   ];
   function getLevelSpriteImage(arr, lvl){
     const entry = arr[lvl];
@@ -1994,33 +2019,40 @@ const LONG_RUN = new SpriteAnim({
 
     // Treppen (Schraegen) -- PARALLELOGRAMM:
     //   A(rp.x, ry1) - B(rp.x+SLOPE, ry0) - C(rp.x+SLOPE+TRIGGER, ry0) - D(rp.x+TRIGGER, ry1)
-    // Procedural Fallback bis das echte 220x192 Pixel-Art-Sprite vorliegt.
+    // Wenn LEVEL_RAMP_SPRITES[lvl] gesetzt -> Pixel-Art-Sprite, sonst Procedural-Parallelogramm.
     for(const rp of ramps){
       const ry1 = levelFloorY(rp.level);     // Boden Level k
       const ry0 = levelFloorY(rp.level + 1); // Boden Level k+1 (= Top der Rampe)
       if(ry1 < -50 || ry0 > H + 50) continue;
-      const ax = rp.x,                            ay = ry1;
-      const bx = rp.x + RAMP_SLOPE,               by = ry0;
-      const cx = rp.x + RAMP_SLOPE + RAMP_TRIGGER, cy = ry0;
-      const dx_ = rp.x + RAMP_TRIGGER,             dy_ = ry1;
-      const rgrad = ctx.createLinearGradient(ax, ay, bx, by);
-      rgrad.addColorStop(0, '#ff8a3d');
-      rgrad.addColorStop(1, '#ffd95c');
-      ctx.fillStyle = rgrad;
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(bx, by);
-      ctx.lineTo(cx, cy);
-      ctx.lineTo(dx_, dy_);
-      ctx.closePath();
-      ctx.fill();
-      // Walking-Diagonale (Lauf-Seite) als knackige Linie
-      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(bx, by);
-      ctx.stroke();
+      const rampSprite = getLevelSpriteImage(LEVEL_RAMP_SPRITES, rp.level);
+      if(rampSprite && rampSprite.complete && rampSprite.naturalWidth > 0){
+        // Pixel-Art-Sprite gerendert ueber dem Parallelogramm-Bereich.
+        // Sprite-Width = RAMP_WIDTH (220), Height = LEVEL_GAP (192). Pixel-perfect, integer coords.
+        ctx.drawImage(rampSprite, Math.round(rp.x), Math.round(ry0), RAMP_WIDTH, LEVEL_GAP);
+      } else {
+        // Procedural Fallback: Parallelogramm mit Gradient + Walking-Diagonale
+        const ax = rp.x,                             ay = ry1;
+        const bx = rp.x + RAMP_SLOPE,                by = ry0;
+        const cx = rp.x + RAMP_SLOPE + RAMP_TRIGGER, cy = ry0;
+        const dx_ = rp.x + RAMP_TRIGGER,             dy_ = ry1;
+        const rgrad = ctx.createLinearGradient(ax, ay, bx, by);
+        rgrad.addColorStop(0, '#ff8a3d');
+        rgrad.addColorStop(1, '#ffd95c');
+        ctx.fillStyle = rgrad;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(dx_, dy_);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+      }
     }
 
     // Hindernisse -- y aus level abgeleitet, sodass sie mit der Welt mitfahren.
@@ -2113,7 +2145,7 @@ const LONG_RUN = new SpriteAnim({
       const sw = ONEUP_SPRITE.frameW * ONEUP_SCALE;
       const sh = ONEUP_SPRITE.frameH * ONEUP_SCALE;
       if(ONEUP_SPRITE.ready){
-        drawWithGreenGlow(ONEUP_SPRITE, timeAlive, u.x - sw/2, uy - sh/2, sw, sh);
+        drawWithGreenGlow(ONEUP_SPRITE, renderTime, u.x - sw/2, uy - sh/2, sw, sh);
       } else {
         ctx.fillStyle = '#ff4d8d';
         ctx.beginPath(); ctx.arc(u.x, uy, 14, 0, Math.PI*2); ctx.fill();
@@ -2134,7 +2166,7 @@ const LONG_RUN = new SpriteAnim({
       if(sa.ready){
         const sw = sa.frameW * COIN_SCALE;
         const sh = sa.frameH * COIN_SCALE;
-        drawWithGreenGlow(sa, timeAlive, c.x - sw/2, cy - sh/2, sw, sh);
+        drawWithGreenGlow(sa, renderTime, c.x - sw/2, cy - sh/2, sw, sh);
       } else {
         // Procedural Fallback: Goldkreis mit Highlight
         ctx.fillStyle = '#cc8a00';
@@ -2277,6 +2309,7 @@ const LONG_RUN = new SpriteAnim({
     let dt = (t - lastT)/1000;
     lastT = t;
     if(dt > 0.05) dt = 0.05; // clamp big stalls
+    renderTime += dt;  // laeuft immer (auch in OVER) damit ambient Sprites animieren
     // Pause oder Hit-Pause: update einfrieren, draw laeuft weiter (Hit-Flash bleibt sichtbar)
     if(!paused && !isHitPaused()) update(dt);
     draw();
