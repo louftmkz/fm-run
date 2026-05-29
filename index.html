@@ -102,8 +102,9 @@
   .musicBtn.muted .iconOff{display:block}
   .top{display:flex;justify-content:space-between;align-items:flex-start;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));letter-spacing:.5px;gap:12px}
   /* Padding-bottom bewusst fix (kein safe-area-inset) -- User will keine
-     verschenkten Pixel durch den iPhone-Home-Indicator-Streifen. */
-  .charnav{padding-bottom:10px}
+     verschenkten Pixel durch den iPhone-Home-Indicator-Streifen.
+     20px (= doppelt) damit die Buttons leichten Abstand zum echten Bottom haben. */
+  .charnav{padding-bottom:20px}
   .scoreCol{display:flex;flex-direction:column;gap:4px;flex:1;text-align:left}
   .score{font-variant-numeric:tabular-nums;font-size:14px;line-height:1;color:var(--ink)}
   .best{font-variant-numeric:tabular-nums;font-size:7px;line-height:1;color:var(--ink-dim);letter-spacing:.5px}
@@ -1979,44 +1980,49 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
-    // Etagen-Linien: alle Levels rendern
-    //  - oberhalb Spieler: Slab + gelbe Akzentlinie (Etage in der Luft)
-    //  - auf Spieler-Hoehe: starke gelbe Linie auf gefuelltem Boden
-    //  - unterhalb (besuchte Etagen): schwache gelbe Linie im Boden
+    // Etagen-Linien: alle Levels rendern. Konstante Dicke ueber alle Ebenen ->
+    // keine "Bildspruenge" beim Wechsel. Boden waechst von fy nach UNTEN, Player.y bleibt
+    // unveraendert (Spieler-Fuesse stehen auf der Oberkante = fy).
+    const FLOOR_THICKNESS = 10;  // Slab-Hoehe nach unten
+    const FLOOR_ACCENT    = 2;   // Helle gelbe Akzent-Linie auf der Oberkante
     for(let lvl = 0; lvl <= MAX_LEVEL; lvl++){
       const fy = levelFloorY(lvl);
-      if(fy < -10 || fy > H + 10) continue;
+      if(fy < -10 || fy > H + FLOOR_THICKNESS + 10) continue;
       if(fy < playerFloorScreenY - 0.5){
-        // Etage in der Luft
-        const pgrad = ctx.createLinearGradient(0, fy, 0, fy + 6);
-        pgrad.addColorStop(0, 'rgba(26,35,72,0.85)');
-        pgrad.addColorStop(1, 'rgba(7,11,26,0.85)');
+        // Etage in der Luft -- voller Slab mit Gradient
+        const pgrad = ctx.createLinearGradient(0, fy, 0, fy + FLOOR_THICKNESS);
+        pgrad.addColorStop(0, 'rgba(26,35,72,0.92)');
+        pgrad.addColorStop(1, 'rgba(7,11,26,0.92)');
         ctx.fillStyle = pgrad;
-        ctx.fillRect(0, fy, W, 6);
-        ctx.strokeStyle = 'rgba(255,204,51,0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
+        ctx.fillRect(0, fy, W, FLOOR_THICKNESS);
+        // Akzent-Linie (gelb) auf der Oberkante = wo Lou laufen wuerde
+        ctx.fillStyle = 'rgba(255,204,51,0.55)';
+        ctx.fillRect(0, fy, W, FLOOR_ACCENT);
       } else if(fy > playerFloorScreenY + 0.5){
-        // unterhalb des Spielers -- schwacher Marker
-        ctx.strokeStyle = 'rgba(255,204,51,0.18)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
+        // Unterhalb des Spielers -- schwacher Slab + dezente Akzent-Linie
+        ctx.fillStyle = 'rgba(7,11,26,0.55)';
+        ctx.fillRect(0, fy, W, FLOOR_THICKNESS);
+        ctx.fillStyle = 'rgba(255,204,51,0.2)';
+        ctx.fillRect(0, fy, W, FLOOR_ACCENT);
       } else {
-        // exakt auf Spieler-Hoehe
-        ctx.strokeStyle = 'rgba(255,204,51,0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
+        // Exakt auf Spieler-Hoehe: gleicher Look wie oberhalb
+        const pgrad = ctx.createLinearGradient(0, fy, 0, fy + FLOOR_THICKNESS);
+        pgrad.addColorStop(0, 'rgba(26,35,72,0.92)');
+        pgrad.addColorStop(1, 'rgba(7,11,26,0.92)');
+        ctx.fillStyle = pgrad;
+        ctx.fillRect(0, fy, W, FLOOR_THICKNESS);
+        ctx.fillStyle = 'rgba(255,204,51,0.55)';
+        ctx.fillRect(0, fy, W, FLOOR_ACCENT);
       }
     }
 
-    // Luecken: schmaler Strip in der Plattform-Linie der jeweiligen Etage.
-    // Y-Position folgt levelFloorY(g.level) -- gilt fuer alle Etagen, sodass auch
-    // hoehere/niedrigere Etagen sichtbar Loecher in ihrem Floor haben.
+    // Luecken: clearRect ueber die volle Slab-Hoehe damit kein Linien-Rest zurueckbleibt.
+    // Y startet leicht oberhalb der Floor-Oberkante (-1) und reicht ueber den ganzen Slab (+1).
     for(const g of gaps){
       if(g.x + g.w < 0 || g.x > W) continue;
       const gy = levelFloorY(g.level);
       if(gy < -10 || gy > H + 10) continue;
-      ctx.clearRect(g.x, gy - 2, g.w, 5);
+      ctx.clearRect(g.x, gy - 1, g.w, FLOOR_THICKNESS + 2);
     }
 
     // Treppen (Schraegen) -- PARALLELOGRAMM:
