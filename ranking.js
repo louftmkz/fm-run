@@ -65,6 +65,9 @@
         try { const { data } = await sb.rpc('submit_score_by_id', { p_user_id: session.userId, p_distance: localBest });
               if(typeof data === 'number') profile.best_distance = data; } catch(e){}
       }
+      // Sync server best_distance -> localStorage damit main script updateBestDisplay() macht
+      try { localStorage.setItem('fmrun_best', String(profile.best_distance || 0)); } catch(e){}
+      window.dispatchEvent(new CustomEvent('fmrun:bestSynced', { detail: { best: profile.best_distance || 0 } }));
     }
   }
 
@@ -188,6 +191,9 @@
     try {
       const { data: best } = await sb.rpc('submit_score_by_id', { p_user_id: session.userId, p_distance: d });
       if(typeof best === 'number') profile.best_distance = best;
+      // Sync zurueck zu localStorage + Event fuer main script
+      try { localStorage.setItem('fmrun_best', String(profile.best_distance || 0)); } catch(e){}
+      window.dispatchEvent(new CustomEvent('fmrun:bestSynced', { detail: { best: profile.best_distance || 0 } }));
       const { data: rank } = await sb.rpc('my_worldwide_rank_by_id', { p_user_id: session.userId });
       if(rankEl && typeof rank === 'number') rankEl.textContent = 'Welt-Rang: #' + rank;
     } catch(e){

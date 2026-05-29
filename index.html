@@ -491,6 +491,15 @@
     if(el) el.textContent = 'Best ' + best.toLocaleString('de-DE') + ' m';
   }
   updateBestDisplay();
+  // Best wird von ranking.js (Server-Profil) syncronisiert nach Login + Score-Submit.
+  // Event 'fmrun:bestSynced' fuellt unsere lokale 'best'-Variable + Display.
+  window.addEventListener('fmrun:bestSynced', (e) => {
+    const serverBest = (e && e.detail && e.detail.best) | 0;
+    if(serverBest > best){
+      best = serverBest;
+      updateBestDisplay();
+    }
+  });
 
   // ---------- Lives / 1up ----------
   // 1ups spawnen nur als Teil des ramp_oneup Patterns auf Ebene 6.
