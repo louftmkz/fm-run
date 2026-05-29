@@ -101,10 +101,10 @@
   .musicBtn.muted .iconOn{display:none}
   .musicBtn.muted .iconOff{display:block}
   .top{display:flex;justify-content:space-between;align-items:flex-start;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));letter-spacing:.5px;gap:12px}
-  /* Padding-bottom bewusst fix (kein safe-area-inset) -- User will keine
-     verschenkten Pixel durch den iPhone-Home-Indicator-Streifen.
-     20px (= doppelt) damit die Buttons leichten Abstand zum echten Bottom haben. */
-  .charnav{padding-bottom:20px}
+  /* Padding-bottom minimal: 8px. User will dass Buttons so nah am Bottom wie moeglich sitzen.
+     Was darunter visuell noch frei wirkt = iOS Safari URL-Bar (im Browser-Tab) ODER iPhone
+     Home-Indicator-Zone -- beides Hardware/Browser-UI, NICHT meine CSS-Padding. */
+  .charnav{padding-bottom:8px}
   .scoreCol{display:flex;flex-direction:column;gap:4px;flex:1;text-align:left}
   .score{font-variant-numeric:tabular-nums;font-size:14px;line-height:1;color:var(--ink)}
   .best{font-variant-numeric:tabular-nums;font-size:7px;line-height:1;color:var(--ink-dim);letter-spacing:.5px}
@@ -747,10 +747,12 @@ const LONG_RUN = new SpriteAnim({
   ];
   // Per-Level Ramp-Sprites (Parallelogramm 220x192). null = procedural Fallback.
   // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
+  // VORUEBERGEHEND alle null gesetzt fuer Lou-Climb-Debug -- procedural Parallelogramm zeigt
+  // exakt wo der Trigger ist. Sobald Lou-Issue geklaert, kommen Sprites wieder rein.
   const LEVEL_RAMP_SPRITES = [
     null,                       // 0 Underground
     null,                       // 1 Gutter & Ghetto
-    './sprites/ramp-level-1.png', // 2 Training Room (START) -- erstes Ramp-Design
+    null,                       // 2 Training Room (Sprite temporaer deaktiviert)
     null,                       // 3 Night Club
     null,                       // 4 Battle Ground
     null,                       // 5 TV Studio
