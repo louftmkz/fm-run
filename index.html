@@ -107,7 +107,7 @@
   .charnav{padding-bottom:8px}
   .scoreCol{display:flex;flex-direction:column;gap:4px;flex:1;text-align:left}
   .score{font-variant-numeric:tabular-nums;font-size:14px;line-height:1;color:var(--ink)}
-  .best{font-variant-numeric:tabular-nums;font-size:7px;line-height:1;color:var(--ink-dim);letter-spacing:.5px}
+  .best{font-variant-numeric:tabular-nums;font-size:9px;line-height:1;color:#a9b3d8;letter-spacing:.5px;text-shadow:0 1px 0 rgba(0,0,0,0.7)}
   .coins{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-size:14px;flex:1;justify-content:center}
   .coin-dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(255,204,51,0.5)}
   .lives{display:flex;align-items:center;gap:5px;flex:1;justify-content:flex-end}
@@ -747,17 +747,15 @@ const LONG_RUN = new SpriteAnim({
   ];
   // Per-Level Ramp-Sprites (Parallelogramm 220x192). null = procedural Fallback.
   // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
-  // VORUEBERGEHEND alle null gesetzt fuer Lou-Climb-Debug -- procedural Parallelogramm zeigt
-  // exakt wo der Trigger ist. Sobald Lou-Issue geklaert, kommen Sprites wieder rein.
   const LEVEL_RAMP_SPRITES = [
-    null,                       // 0 Underground
-    null,                       // 1 Gutter & Ghetto
-    null,                       // 2 Training Room (Sprite temporaer deaktiviert)
-    null,                       // 3 Night Club
-    null,                       // 4 Battle Ground
-    null,                       // 5 TV Studio
-    null,                       // 6 Theater Stage
-    null                        // 7 Spaceship
+    null,                            // 0 Underground
+    null,                            // 1 Gutter & Ghetto
+    './sprites/ramp-level-1.png',    // 2 Training Room (START) -- erstes Ramp-Design
+    null,                            // 3 Night Club
+    null,                            // 4 Battle Ground
+    null,                            // 5 TV Studio
+    null,                            // 6 Theater Stage
+    null                             // 7 Spaceship
   ];
   function getLevelSpriteImage(arr, lvl){
     const entry = arr[lvl];
