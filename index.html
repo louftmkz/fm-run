@@ -127,6 +127,14 @@
   .hidden{display:none !important}
   .gameover .title{background:linear-gradient(90deg,var(--danger),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:8px;margin-left:8px;vertical-align:middle}
+  /* Portrait-Lock: in Landscape auf Phones (kleines Hoehen-Limit) -> Game-Wrap aus,
+     stattdessen ein minimaler ⟲ Hint. Nur Portrait spielbar. */
+  #rotateHint{display:none}
+  @media (orientation: landscape) and (max-height: 500px){
+    #wrap{display:none !important}
+    #rotateHint{display:flex;position:fixed;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#050714;color:#5a6280;font-family:var(--pixel);font-size:11px;letter-spacing:1px;z-index:999}
+    #rotateHint .icon{font-size:48px;line-height:1}
+  }
   /* Settings-Modal (Sound an/aus). Eigenstaendig, parallel zum Ranking-Modal (fmModal). */
   .modal{position:absolute;inset:0;background:rgba(7,11,26,0.92);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:auto}
   .modalCard{background:var(--bg-1);border:2px solid rgba(255,255,255,0.18);border-radius:8px;padding:22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:240px;max-width:340px;width:100%}
@@ -174,6 +182,11 @@
 </style>
 </head>
 <body>
+<!-- Portrait-only: in Landscape uebernimmt diese Hint (CSS @media steuert sichtbar) -->
+<div id="rotateHint" aria-hidden="true">
+  <div class="icon">⟲</div>
+  <div>DREHEN</div>
+</div>
 <div id="wrap">
   <div id="gamearea">
     <canvas id="game"></canvas>
