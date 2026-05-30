@@ -1943,10 +1943,10 @@ const LONG_RUN = new SpriteAnim({
     c.imageSmoothingEnabled = false;
     c.shadowColor = RAMP_GLOW_COLOR;
     c.shadowOffsetX = 0; c.shadowOffsetY = 0;
-    c.shadowBlur = 24;
+    // Dezent: nur EIN Soft-Glow-Pass mit kleinerem Blur (vorher 2 Passes 24+10).
+    c.shadowBlur = 12;
     c.drawImage(img, GLOW_PAD, GLOW_PAD);
-    c.shadowBlur = 10;
-    c.drawImage(img, GLOW_PAD, GLOW_PAD);
+    // 1px Outline bleibt -- 4 directional shadows mit blur=0
     c.shadowBlur = 0;
     const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
     for(const [ox, oy] of dirs){
