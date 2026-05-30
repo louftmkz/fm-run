@@ -1218,6 +1218,12 @@ const LONG_RUN = new SpriteAnim({
     return COIN_KIND_BY_LEVEL[lvl] || 'coin';
   }
   // Spawnt 3 Single-Coins in einer Reihe (selbe Ebene, ~25px Abstand).
+  // Coin auf Spawn-Position waere ueber einer Gap auf gleicher Ebene -> Lou waere
+  // unerreichbar, faellt rein. Skip ground-level coin-spawns ueber Gaps.
+  function gapAtSpawnX(lvl){
+    const x = W + 20, w = 80; // konservative Span fuer Coin-Reihe oder Single
+    return hasOverlapOnLevel(gaps, l => l === lvl, x, w);
+  }
   function spawnCoinChain(lvl){
     let x = W + 20;
     for(let i = 0; i < 3; i++){
@@ -1226,6 +1232,7 @@ const LONG_RUN = new SpriteAnim({
     }
   }
   function spawnCoin(lvl){
+    if(gapAtSpawnX(lvl)) return; // keine Ground-Level-Coin ueber einer Gap
     if(lvl === 0){
       // Underground: vollstaendige Rarity-Tabelle inkl. 3er-Folge (20%)
       const r = Math.random();
@@ -1250,9 +1257,17 @@ const LONG_RUN = new SpriteAnim({
   function spawnGap(lvl){
     const w = 80 + Math.random()*50;
     const x = W + 20;
-    // Skip wenn auf Ebene darunter (lvl-1) eine Rampe genau hier ist
-    // -> sonst landet Lou nach Aufstieg in dem Loch.
-    if(hasOverlapOnLevel(ramps, l => l === lvl - 1, x, w)) return;
+    // Skip wenn auf Ebene darunter (lvl-1) eine Rampe in Reichweite ist. Inkludiert
+    // Safe-Buffer NACH dem Slide-Ende, damit Lou nach dem Aufstieg nicht direkt ins
+    // Loch faellt (das er waehrend des Slides nicht sehen konnte).
+    const SAFE_AFTER_RAMP = 250;
+    for(const rp of ramps){
+      if(rp.level !== lvl - 1) continue;
+      // Danger-Zone: von Ramp-Start bis Ramp-Ende + Safe-Buffer
+      const dangerL = rp.x;
+      const dangerR = rp.x + RAMP_WIDTH + SAFE_AFTER_RAMP;
+      if(dangerR > x && dangerL < x + w) return;
+    }
     gaps.push({x, w, level: lvl});
     if(Math.random() < 0.20){
       // Air-Coin ueber der Luecke -- Kind nach Ebenen-Regel
@@ -1270,19 +1285,24 @@ const LONG_RUN = new SpriteAnim({
     ramps.push({x, w, level: lvl});
   }
   function spawnObstacle(lvl){
+    // Skip wenn auf gleicher Ebene ein Loch am Spawn-X ist -- Hindernis ueber Loch
+    // ist visuell Quatsch (Lou faellt eh durch das Loch).
+    const x = W + 20;
+    const maxObstacleSpan = 75; // konservativer Range fuer Single/Tall/Double-Combo
+    if(hasOverlapOnLevel(gaps, l => l === lvl, x, maxObstacleSpan)) return;
     const r = Math.random();
     if(r < 0.55){
       const w = 24 + Math.random()*22;
       const h = 28 + Math.random()*18;
-      obstacles.push({x: W + 20, w, h, type:'low', level: lvl});
+      obstacles.push({x, w, h, type:'low', level: lvl});
     } else if(r < 0.85){
       const w = 26;
       const h = 60 + Math.random()*20;
-      obstacles.push({x: W + 20, w, h, type:'tall', level: lvl});
+      obstacles.push({x, w, h, type:'tall', level: lvl});
     } else {
       const w = 22, h = 32;
-      obstacles.push({x: W + 20, w, h, type:'low', level: lvl});
-      obstacles.push({x: W + 20 + w + 28, w, h, type:'low', level: lvl});
+      obstacles.push({x, w, h, type:'low', level: lvl});
+      obstacles.push({x: x + w + 28, w, h, type:'low', level: lvl});
     }
   }
 
