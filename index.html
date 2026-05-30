@@ -46,13 +46,14 @@
     --pixel:'Press Start 2P',ui-monospace,'Courier New',monospace;
   }
   *{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-  html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:var(--pixel);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+  html,body{margin:0;padding:0;width:100%;height:100%;height:100dvh;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:var(--pixel);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+  body{display:flex;justify-content:center;align-items:stretch}
   /* Mobile-only Layout: auf Desktop wird das Spielfeld auf Phone-Aspect (max 430px) zentriert.
      Auf Mobile fuellt es weiterhin den ganzen Bildschirm.
      Wichtig: height:100dvh explizit damit iOS PWA (Chrome wie Safari) den vollen Screen
      nutzt und nicht nur den "Safe-Viewport" ueber dem Home-Indicator. */
   body{background:#050714}
-  #wrap{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;height:100vh;height:100dvh;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(0,0,0,0.6)}
+  #wrap{position:relative;width:100%;max-width:430px;min-height:0;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(0,0,0,0.6)}
   #gamearea{flex:1;position:relative;min-height:0;overflow:hidden}
   canvas{display:block;width:100%;height:100%;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 70%)}
   .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
@@ -108,14 +109,14 @@
   .musicBtn .iconOff{display:none}
   .musicBtn.muted .iconOn{display:none}
   .musicBtn.muted .iconOff{display:block}
-  .top{display:flex;justify-content:space-between;align-items:flex-start;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));letter-spacing:.5px;gap:12px}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left));letter-spacing:.5px;gap:12px;background:linear-gradient(180deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15))}
   /* Padding-bottom minimal: 8px. User will dass Buttons so nah am Bottom wie moeglich sitzen.
      Was darunter visuell noch frei wirkt = iOS Safari URL-Bar (im Browser-Tab) ODER iPhone
      Home-Indicator-Zone -- beides Hardware/Browser-UI, NICHT meine CSS-Padding. */
   .charnav{padding-bottom:8px}
   .scoreCol{display:flex;flex-direction:column;gap:4px;flex:1;text-align:left}
   .score{font-variant-numeric:tabular-nums;font-size:14px;line-height:1;color:var(--ink)}
-  .best{font-variant-numeric:tabular-nums;font-size:9px;line-height:1;color:#a9b3d8;letter-spacing:.5px;text-shadow:0 1px 0 rgba(0,0,0,0.7)}
+  .best{font-variant-numeric:tabular-nums;font-size:9px;line-height:1;color:#a9b3d8;letter-spacing:.5px;text-shadow:0 1px 0 rgba(0,0,0,0.7);white-space:nowrap}
   .coins{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-size:14px;flex:1;justify-content:center}
   .coin-dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(255,204,51,0.5)}
   .lives{display:flex;align-items:center;gap:5px;flex:1;justify-content:flex-end}
@@ -1269,7 +1270,7 @@ const LONG_RUN = new SpriteAnim({
     // Skip wenn auf Ebene darunter (lvl-1) eine Rampe in Reichweite ist. Inkludiert
     // Safe-Buffer NACH dem Slide-Ende, damit Lou nach dem Aufstieg nicht direkt ins
     // Loch faellt (das er waehrend des Slides nicht sehen konnte).
-    const SAFE_AFTER_RAMP = 250;
+    const SAFE_AFTER_RAMP = 500;
     for(const rp of ramps){
       if(rp.level !== lvl - 1) continue;
       // Danger-Zone: von Ramp-Start bis Ramp-Ende + Safe-Buffer
@@ -2185,12 +2186,20 @@ const LONG_RUN = new SpriteAnim({
 
     // Hindernisse -- y aus level abgeleitet, sodass sie mit der Welt mitfahren.
     // Pro Ebene optional ein Sprite (LEVEL_OBSTACLE_SPRITES); sonst procedural pink-gradient.
+    const OBSTACLE_SPRITE_SCALE = 1.5;
     for(const o of obstacles){
+      const sprite = getLevelSpriteImage(LEVEL_OBSTACLE_SPRITES, o.level);
+      // Wenn ein Sprite existiert und geladen ist: Hitbox einmalig an Sprite-Native*1.5 binden,
+      // damit der visuelle Sprite nicht gestreckt wird und Kollision visuell stimmt.
+      if(sprite && sprite.complete && sprite.naturalWidth > 0 && !o._spriteSized){
+        o.w = sprite.naturalWidth  * OBSTACLE_SPRITE_SCALE;
+        o.h = sprite.naturalHeight * OBSTACLE_SPRITE_SCALE;
+        o._spriteSized = true;
+      }
       const oy = levelFloorY(o.level) - o.h;
       if(oy < -200 || oy > H + 200) continue;
-      const sprite = getLevelSpriteImage(LEVEL_OBSTACLE_SPRITES, o.level);
       if(sprite && sprite.complete && sprite.naturalWidth > 0){
-        ctx.drawImage(sprite, Math.round(o.x), Math.round(oy), Math.ceil(o.w), Math.ceil(o.h));
+        ctx.drawImage(sprite, Math.round(o.x), Math.round(oy), Math.round(o.w), Math.round(o.h));
       } else {
         const grd = ctx.createLinearGradient(o.x, oy, o.x, oy + o.h);
         grd.addColorStop(0,'#ff4d8d');
