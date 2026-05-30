@@ -1924,6 +1924,100 @@ const LONG_RUN = new SpriteAnim({
     tickParticles(dt);
   }
 
+  // ---------- Glow-Helper (Module-Level damit Konstanten initialisiert sind BEVOR draw() laeuft) ----------
+  // Money + 1up: pixel-perfekte 1px gruene Outline + intensiver Soft-Glow.
+  // Ramp: blauer Glow + 1px Outline, pre-baked pro Image (one-time render).
+  // Trick: jeder Frame wird zuerst in einen offscreen-Canvas MIT PADDING gerendert.
+  // Dadurch kann der shadow-Gauss frei in die Padding-Zone "bleeden" -- kein Clip am Sprite-Frame.
+  const MONEY_GLOW_COLOR = '#8cf0aa';
+  const RAMP_GLOW_COLOR  = '#7eb6ff';
+  const GLOW_PAD = 32;
+  function ensureRampGlowCanvas(img){
+    if(!img.complete || !img.naturalWidth) return false;
+    if(img._glowCanvas) return true;
+    const sw = img.naturalWidth, sh = img.naturalHeight;
+    const tw = sw + GLOW_PAD*2, th = sh + GLOW_PAD*2;
+    const canvas = document.createElement('canvas');
+    canvas.width = tw; canvas.height = th;
+    const c = canvas.getContext('2d');
+    c.imageSmoothingEnabled = false;
+    c.shadowColor = RAMP_GLOW_COLOR;
+    c.shadowOffsetX = 0; c.shadowOffsetY = 0;
+    c.shadowBlur = 24;
+    c.drawImage(img, GLOW_PAD, GLOW_PAD);
+    c.shadowBlur = 10;
+    c.drawImage(img, GLOW_PAD, GLOW_PAD);
+    c.shadowBlur = 0;
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    for(const [ox, oy] of dirs){
+      c.shadowOffsetX = ox; c.shadowOffsetY = oy;
+      c.drawImage(img, GLOW_PAD, GLOW_PAD);
+    }
+    img._glowCanvas = canvas;
+    return true;
+  }
+  function drawRampWithBlueGlow(img, dx, dy, dw, dh){
+    if(!ensureRampGlowCanvas(img)){
+      if(img.complete && img.naturalWidth > 0){
+        ctx.drawImage(img, Math.round(dx), Math.round(dy), dw, dh);
+      }
+      return;
+    }
+    const pad = img._glowCanvas;
+    const sw = img.naturalWidth, sh = img.naturalHeight;
+    const scaleX = dw / sw, scaleY = dh / sh;
+    const destX = Math.round(dx - GLOW_PAD * scaleX);
+    const destY = Math.round(dy - GLOW_PAD * scaleY);
+    const destW = Math.round(pad.width  * scaleX);
+    const destH = Math.round(pad.height * scaleY);
+    ctx.drawImage(pad, destX, destY, destW, destH);
+  }
+  function ensureSpritePad(sprite){
+    if(!sprite._padCanvas){
+      sprite._padCanvas = document.createElement('canvas');
+      sprite._padCtx = sprite._padCanvas.getContext('2d');
+      sprite._padCtx.imageSmoothingEnabled = false;
+    }
+    const sw = sprite.frameW, sh = sprite.frameH;
+    const tw = sw + GLOW_PAD*2, th = sh + GLOW_PAD*2;
+    if(sprite._padCanvas.width !== tw || sprite._padCanvas.height !== th){
+      sprite._padCanvas.width = tw;
+      sprite._padCanvas.height = th;
+      sprite._padCtx.imageSmoothingEnabled = false;
+    }
+  }
+  function drawWithGreenGlow(sprite, time, dx, dy, dw, dh){
+    if(!sprite.ready) return;
+    ensureSpritePad(sprite);
+    const sw = sprite.frameW, sh = sprite.frameH;
+    const idx = sprite.frameAt(time, true);
+    const pad = sprite._padCanvas;
+    const pCtx = sprite._padCtx;
+    pCtx.clearRect(0, 0, pad.width, pad.height);
+    pCtx.drawImage(sprite.img, idx*sw, 0, sw, sh, GLOW_PAD, GLOW_PAD, sw, sh);
+    const scaleX = dw / sw, scaleY = dh / sh;
+    const destW = pad.width  * scaleX;
+    const destH = pad.height * scaleY;
+    const destX = Math.round(dx - GLOW_PAD * scaleX);
+    const destY = Math.round(dy - GLOW_PAD * scaleY);
+    const dW = Math.round(destW), dH = Math.round(destH);
+    ctx.shadowColor = MONEY_GLOW_COLOR;
+    ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+    ctx.shadowBlur = 24;
+    ctx.drawImage(pad, destX, destY, dW, dH);
+    ctx.shadowBlur = 10;
+    ctx.drawImage(pad, destX, destY, dW, dH);
+    ctx.shadowBlur = 0;
+    const OUT = Math.max(1, Math.round(scaleX));
+    const dirs = [[-OUT,0],[OUT,0],[0,-OUT],[0,OUT]];
+    for(const [ox, oy] of dirs){
+      ctx.shadowOffsetX = ox;
+      ctx.shadowOffsetY = oy;
+      ctx.drawImage(pad, destX, destY, dW, dH);
+    }
+    ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; ctx.shadowBlur = 0;
+  }
+
   function draw(){
     ctx.clearRect(0,0,W,H);
 
@@ -2090,114 +2184,6 @@ const LONG_RUN = new SpriteAnim({
         ctx.fillStyle = 'rgba(255,255,255,0.25)';
         ctx.fillRect(o.x+3, oy+3, o.w-6, 3);
       }
-    }
-
-    // Money + 1up: pixel-perfekte 1px gruene Outline + intensiver Soft-Glow.
-    // Trick: jeder Frame wird zuerst in einen offscreen-Canvas MIT PADDING gerendert,
-    // dann mit shadow auf das Hauptcanvas gezeichnet. Dadurch kann der shadow-Gauss
-    // frei in die Padding-Zone "bleeden" -- kein Clip mehr am Sprite-Frame.
-    // Outline: 4 Schatten-Passes (oben/unten/links/rechts, blur=0, offset=1) auf dem
-    // gepaddeden Canvas -> harte 1-Pixel gruene Kontur an der echten Sprite-Silhouette.
-    // Glow-Layer: 2 Schatten-Passes (blur 24 + blur 10) auf dem gepaddeden Canvas.
-    const MONEY_GLOW_COLOR = '#8cf0aa';
-    const RAMP_GLOW_COLOR  = '#7eb6ff';
-    const GLOW_PAD = 32; // genug Platz fuer Outer-Blur 24 + 1px Outline
-    // Ramp-Glow ist pre-baked pro Image (one-time render mit Shadow + Outline in offscreen
-    // Canvas). Per Frame nur 1x drawImage -> performant auch bei 8+ Ramps gleichzeitig.
-    function ensureRampGlowCanvas(img){
-      if(!img.complete || !img.naturalWidth) return false;
-      if(img._glowCanvas) return true;
-      const sw = img.naturalWidth, sh = img.naturalHeight;
-      const tw = sw + GLOW_PAD*2, th = sh + GLOW_PAD*2;
-      const canvas = document.createElement('canvas');
-      canvas.width = tw; canvas.height = th;
-      const c = canvas.getContext('2d');
-      c.imageSmoothingEnabled = false;
-      // Soft-Glow Pass 1 (weiter Halo)
-      c.shadowColor = RAMP_GLOW_COLOR;
-      c.shadowOffsetX = 0; c.shadowOffsetY = 0;
-      c.shadowBlur = 24;
-      c.drawImage(img, GLOW_PAD, GLOW_PAD);
-      // Soft-Glow Pass 2 (tighter)
-      c.shadowBlur = 10;
-      c.drawImage(img, GLOW_PAD, GLOW_PAD);
-      // Pixel-perfekte 1px Outline: 4 directional shadows mit blur=0
-      c.shadowBlur = 0;
-      const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-      for(const [ox, oy] of dirs){
-        c.shadowOffsetX = ox; c.shadowOffsetY = oy;
-        c.drawImage(img, GLOW_PAD, GLOW_PAD);
-      }
-      img._glowCanvas = canvas;
-      return true;
-    }
-    function drawRampWithBlueGlow(img, dx, dy, dw, dh){
-      if(!ensureRampGlowCanvas(img)){
-        // Fallback: plain drawImage wenn Glow-Canvas (noch) nicht ready
-        if(img.complete && img.naturalWidth > 0){
-          ctx.drawImage(img, Math.round(dx), Math.round(dy), dw, dh);
-        }
-        return;
-      }
-      const pad = img._glowCanvas;
-      const sw = img.naturalWidth, sh = img.naturalHeight;
-      const scaleX = dw / sw, scaleY = dh / sh;
-      const destX = Math.round(dx - GLOW_PAD * scaleX);
-      const destY = Math.round(dy - GLOW_PAD * scaleY);
-      const destW = Math.round(pad.width  * scaleX);
-      const destH = Math.round(pad.height * scaleY);
-      ctx.drawImage(pad, destX, destY, destW, destH);
-    }
-    function ensureSpritePad(sprite){
-      if(!sprite._padCanvas){
-        sprite._padCanvas = document.createElement('canvas');
-        sprite._padCtx = sprite._padCanvas.getContext('2d');
-        sprite._padCtx.imageSmoothingEnabled = false;
-      }
-      const sw = sprite.frameW, sh = sprite.frameH;
-      const tw = sw + GLOW_PAD*2, th = sh + GLOW_PAD*2;
-      if(sprite._padCanvas.width !== tw || sprite._padCanvas.height !== th){
-        sprite._padCanvas.width = tw;
-        sprite._padCanvas.height = th;
-        sprite._padCtx.imageSmoothingEnabled = false;
-      }
-    }
-    function drawWithGreenGlow(sprite, time, dx, dy, dw, dh){
-      if(!sprite.ready) return;
-      ensureSpritePad(sprite);
-      const sw = sprite.frameW, sh = sprite.frameH;
-      const idx = sprite.frameAt(time, true);
-      const pad = sprite._padCanvas;
-      const pCtx = sprite._padCtx;
-      // 1) Aktuellen Frame in padded offscreen rendern (transparenter Rand drumherum)
-      pCtx.clearRect(0, 0, pad.width, pad.height);
-      pCtx.drawImage(sprite.img, idx*sw, 0, sw, sh, GLOW_PAD, GLOW_PAD, sw, sh);
-      // Destination im Spielfeld: gepaddete Canvas mit Skala = dw/sw (sollte = COIN_SCALE sein)
-      const scaleX = dw / sw, scaleY = dh / sh;
-      const destW = pad.width  * scaleX;
-      const destH = pad.height * scaleY;
-      const destX = Math.round(dx - GLOW_PAD * scaleX);
-      const destY = Math.round(dy - GLOW_PAD * scaleY);
-      const dW = Math.round(destW), dH = Math.round(destH);
-      // 2) Soft-Glow Pass 1 (weiter Halo)
-      ctx.shadowColor = MONEY_GLOW_COLOR;
-      ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-      ctx.shadowBlur = 24;
-      ctx.drawImage(pad, destX, destY, dW, dH);
-      // 3) Soft-Glow Pass 2 (tighter, intensiver)
-      ctx.shadowBlur = 10;
-      ctx.drawImage(pad, destX, destY, dW, dH);
-      // 4) Pixel-perfekte 1px Outline -- 4 Richtungs-Shadows, blur=0
-      ctx.shadowBlur = 0;
-      const OUT = Math.max(1, Math.round(scaleX)); // 1.5x -> 2px im Display
-      const dirs = [[-OUT,0],[OUT,0],[0,-OUT],[0,OUT]];
-      for(const [ox, oy] of dirs){
-        ctx.shadowOffsetX = ox;
-        ctx.shadowOffsetY = oy;
-        ctx.drawImage(pad, destX, destY, dW, dH);
-      }
-      // Reset
-      ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; ctx.shadowBlur = 0;
     }
 
     // 1ups -- animiertes Sprite (1.5x), schwebt hoch in der Luft (Default 50px ueber Boden,
