@@ -38,6 +38,8 @@
     --accent-2:#ff4d8d;
     --money:#8cf0aa;        /* heller Spring-Green fuer Money-Glow + Shizzo-Verbindung */
     --money-soft:#8cf0aa80; /* halbtransparent fuer dezente Outlines */
+    --lou:#7eb6ff;          /* heller Sky-Blue fuer Ramp-Glow + Lou-Verbindung */
+    --lou-soft:#7eb6ff80;
     --ink:#e8ecff;
     --ink-dim:#8993b8;
     --danger:#ff5566;
@@ -75,6 +77,10 @@
   .charbtn[data-char="shizzo"]{border-color:rgba(140,240,170,0.45)}
   .charbtn[data-char="shizzo"].active{border-color:var(--money);box-shadow:0 0 18px rgba(140,240,170,0.75),inset 0 0 0 1px rgba(140,240,170,0.55)}
   .charbtn[data-char="shizzo"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--money)}
+  /* Lou = der Ramp-Climber -> blaue Outline (default + active glow), visuelle Verbindung zu den Ramp-Sprites */
+  .charbtn[data-char="lou"]{border-color:rgba(126,182,255,0.45)}
+  .charbtn[data-char="lou"].active{border-color:var(--lou);box-shadow:0 0 18px rgba(126,182,255,0.75),inset 0 0 0 1px rgba(126,182,255,0.55)}
+  .charbtn[data-char="lou"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--lou)}
   /* Controlrow: IMMER vorhanden mit fixer Hoehe -> Charnav springt nie.
      - Pause-Button centered via flex
      - Mute + Settings absolut links (gleiche Y wie Pause) */
@@ -2031,16 +2037,16 @@ const LONG_RUN = new SpriteAnim({
 
     // Treppen (Schraegen) -- PARALLELOGRAMM:
     //   A(rp.x, ry1) - B(rp.x+SLOPE, ry0) - C(rp.x+SLOPE+TRIGGER, ry0) - D(rp.x+TRIGGER, ry1)
-    // Wenn LEVEL_RAMP_SPRITES[lvl] gesetzt -> Pixel-Art-Sprite, sonst Procedural-Parallelogramm.
+    // Wenn LEVEL_RAMP_SPRITES[lvl] gesetzt -> Pixel-Art-Sprite mit blauem Outer-Glow +
+    // pixel-perfekte 1px Outline (gleiches Pattern wie Money-Sprites). Sonst Procedural-Parallelogramm.
     for(const rp of ramps){
       const ry1 = levelFloorY(rp.level);     // Boden Level k
       const ry0 = levelFloorY(rp.level + 1); // Boden Level k+1 (= Top der Rampe)
       if(ry1 < -50 || ry0 > H + 50) continue;
       const rampSprite = getLevelSpriteImage(LEVEL_RAMP_SPRITES, rp.level);
       if(rampSprite && rampSprite.complete && rampSprite.naturalWidth > 0){
-        // Pixel-Art-Sprite gerendert ueber dem Parallelogramm-Bereich.
-        // Sprite-Width = RAMP_WIDTH (220), Height = LEVEL_GAP (192). Pixel-perfect, integer coords.
-        ctx.drawImage(rampSprite, Math.round(rp.x), Math.round(ry0), RAMP_WIDTH, LEVEL_GAP);
+        // Pixel-Art-Sprite mit Glow gerendert ueber dem Parallelogramm-Bereich.
+        drawRampWithBlueGlow(rampSprite, rp.x, ry0, RAMP_WIDTH, LEVEL_GAP);
       } else {
         // Procedural Fallback: Parallelogramm mit Gradient + Walking-Diagonale
         const ax = rp.x,                             ay = ry1;
@@ -2094,7 +2100,54 @@ const LONG_RUN = new SpriteAnim({
     // gepaddeden Canvas -> harte 1-Pixel gruene Kontur an der echten Sprite-Silhouette.
     // Glow-Layer: 2 Schatten-Passes (blur 24 + blur 10) auf dem gepaddeden Canvas.
     const MONEY_GLOW_COLOR = '#8cf0aa';
+    const RAMP_GLOW_COLOR  = '#7eb6ff';
     const GLOW_PAD = 32; // genug Platz fuer Outer-Blur 24 + 1px Outline
+    // Ramp-Glow ist pre-baked pro Image (one-time render mit Shadow + Outline in offscreen
+    // Canvas). Per Frame nur 1x drawImage -> performant auch bei 8+ Ramps gleichzeitig.
+    function ensureRampGlowCanvas(img){
+      if(!img.complete || !img.naturalWidth) return false;
+      if(img._glowCanvas) return true;
+      const sw = img.naturalWidth, sh = img.naturalHeight;
+      const tw = sw + GLOW_PAD*2, th = sh + GLOW_PAD*2;
+      const canvas = document.createElement('canvas');
+      canvas.width = tw; canvas.height = th;
+      const c = canvas.getContext('2d');
+      c.imageSmoothingEnabled = false;
+      // Soft-Glow Pass 1 (weiter Halo)
+      c.shadowColor = RAMP_GLOW_COLOR;
+      c.shadowOffsetX = 0; c.shadowOffsetY = 0;
+      c.shadowBlur = 24;
+      c.drawImage(img, GLOW_PAD, GLOW_PAD);
+      // Soft-Glow Pass 2 (tighter)
+      c.shadowBlur = 10;
+      c.drawImage(img, GLOW_PAD, GLOW_PAD);
+      // Pixel-perfekte 1px Outline: 4 directional shadows mit blur=0
+      c.shadowBlur = 0;
+      const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+      for(const [ox, oy] of dirs){
+        c.shadowOffsetX = ox; c.shadowOffsetY = oy;
+        c.drawImage(img, GLOW_PAD, GLOW_PAD);
+      }
+      img._glowCanvas = canvas;
+      return true;
+    }
+    function drawRampWithBlueGlow(img, dx, dy, dw, dh){
+      if(!ensureRampGlowCanvas(img)){
+        // Fallback: plain drawImage wenn Glow-Canvas (noch) nicht ready
+        if(img.complete && img.naturalWidth > 0){
+          ctx.drawImage(img, Math.round(dx), Math.round(dy), dw, dh);
+        }
+        return;
+      }
+      const pad = img._glowCanvas;
+      const sw = img.naturalWidth, sh = img.naturalHeight;
+      const scaleX = dw / sw, scaleY = dh / sh;
+      const destX = Math.round(dx - GLOW_PAD * scaleX);
+      const destY = Math.round(dy - GLOW_PAD * scaleY);
+      const destW = Math.round(pad.width  * scaleX);
+      const destH = Math.round(pad.height * scaleY);
+      ctx.drawImage(pad, destX, destY, destW, destH);
+    }
     function ensureSpritePad(sprite){
       if(!sprite._padCanvas){
         sprite._padCanvas = document.createElement('canvas');
