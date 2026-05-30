@@ -1941,12 +1941,8 @@ const LONG_RUN = new SpriteAnim({
     canvas.width = tw; canvas.height = th;
     const c = canvas.getContext('2d');
     c.imageSmoothingEnabled = false;
+    // Glow komplett raus -- nur noch dezente 1px blaue Outline als Edge-Marker.
     c.shadowColor = RAMP_GLOW_COLOR;
-    c.shadowOffsetX = 0; c.shadowOffsetY = 0;
-    // Dezent: nur EIN Soft-Glow-Pass mit kleinerem Blur (vorher 2 Passes 24+10).
-    c.shadowBlur = 12;
-    c.drawImage(img, GLOW_PAD, GLOW_PAD);
-    // 1px Outline bleibt -- 4 directional shadows mit blur=0
     c.shadowBlur = 0;
     const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
     for(const [ox, oy] of dirs){
@@ -2091,42 +2087,33 @@ const LONG_RUN = new SpriteAnim({
       }
     }
 
-    // Etagen-Linien: alle Levels rendern (ORIGINAL state, vor Step 54 Floor-Thickness-Experiment)
-    //  - oberhalb Spieler: Slab + gelbe Akzentlinie (Etage in der Luft)
-    //  - auf Spieler-Hoehe: starke gelbe Linie auf gefuelltem Boden
-    //  - unterhalb (besuchte Etagen): schwache gelbe Linie im Boden
+    // Etagen-Linien: pro Plattform ein 10px hoher gelber Strip (going DOWN from fy).
+    // Spieler-Mathematik unangetastet: player.y = levelFloorY - player.h -> Player-Fuesse
+    // bleiben auf der OBERKANTE (y=fy). Strip waechst nach UNTEN -> kein Bildsprung.
+    //   - oberhalb Spieler (Etage in der Luft): hellgelb mit kraeftiger Opacity
+    //   - auf Spieler-Hoehe: gleicher kraeftiger Look (Konsistenz)
+    //   - unterhalb (besuchte Etagen): gedimmter Strip
+    const FLOOR_STRIP_H = 10;
     for(let lvl = 0; lvl <= MAX_LEVEL; lvl++){
       const fy = levelFloorY(lvl);
-      if(fy < -10 || fy > H + 10) continue;
-      if(fy < playerFloorScreenY - 0.5){
-        // Etage in der Luft
-        const pgrad = ctx.createLinearGradient(0, fy, 0, fy + 6);
-        pgrad.addColorStop(0, 'rgba(26,35,72,0.85)');
-        pgrad.addColorStop(1, 'rgba(7,11,26,0.85)');
-        ctx.fillStyle = pgrad;
-        ctx.fillRect(0, fy, W, 6);
-        ctx.strokeStyle = 'rgba(255,204,51,0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
-      } else if(fy > playerFloorScreenY + 0.5){
-        // unterhalb des Spielers -- schwacher Marker
-        ctx.strokeStyle = 'rgba(255,204,51,0.18)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
+      if(fy < -10 || fy > H + FLOOR_STRIP_H + 10) continue;
+      if(fy > playerFloorScreenY + 0.5){
+        // Unterhalb des Spielers -- gedimmt
+        ctx.fillStyle = 'rgba(255,204,51,0.22)';
       } else {
-        // exakt auf Spieler-Hoehe
-        ctx.strokeStyle = 'rgba(255,204,51,0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, fy+0.5); ctx.lineTo(W, fy+0.5); ctx.stroke();
+        // Auf oder ueber Spieler -- kraeftig
+        ctx.fillStyle = 'rgba(255,204,51,0.55)';
       }
+      ctx.fillRect(0, fy, W, FLOOR_STRIP_H);
     }
 
-    // Luecken: schmaler Strip in der Plattform-Linie der jeweiligen Etage.
+    // Luecken: clearRect ueber die volle Strip-Hoehe damit kein gelber Rest stehen bleibt.
     for(const g of gaps){
       if(g.x + g.w < 0 || g.x > W) continue;
       const gy = levelFloorY(g.level);
-      if(gy < -10 || gy > H + 10) continue;
-      ctx.clearRect(g.x, gy - 2, g.w, 5);
+      if(gy < -10 || gy > H + FLOOR_STRIP_H + 10) continue;
+      // Strip ist 10px hoch (von gy nach gy+10). +1 Buffer oben und unten gegen Anti-Aliasing-Reste.
+      ctx.clearRect(g.x, gy - 1, g.w, FLOOR_STRIP_H + 2);
     }
 
     // Treppen (Schraegen) -- PARALLELOGRAMM:
