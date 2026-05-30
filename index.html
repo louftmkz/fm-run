@@ -759,8 +759,17 @@ const LONG_RUN = new SpriteAnim({
   ];
   // Legacy-Mapping: wird nur noch fuer die procedural Fallback-Auswahl gebraucht.
   const LEVEL_COIN_SPRITES = [null, COIN_SPRITE_1, COIN_SPRITE_1, COIN_SPRITE_1, COIN_SPRITE_STACK, COIN_SPRITE_BAG, COIN_SPRITE_CASE, COIN_SPRITE_POT];
+  // Per-Level Obstacle-Sprites. null = procedural pink-gradient Fallback.
+  // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
   const LEVEL_OBSTACLE_SPRITES = [
-    null, null, null, null, null, null, null, null
+    null,                              // 0 Underground
+    null,                              // 1 Gutter & Ghetto
+    null,                              // 2 Training Room
+    null,                              // 3 Night Club
+    null,                              // 4 Battle Ground
+    null,                              // 5 TV Studio
+    './sprites/obstacle-level-5.png',  // 6 Theater Stage -- erstes Obstacle-Design
+    null                               // 7 Spaceship
   ];
   // Per-Level Ramp-Sprites (Parallelogramm 229x192 native, gerendert auf 220x192).
   // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
