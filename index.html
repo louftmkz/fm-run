@@ -148,7 +148,8 @@
   .toggleBtn:active{transform:scale(.94)}
   .toggleBtn[data-on="false"]{background:rgba(255,255,255,0.12);color:var(--ink-dim)}
   /* Volume-Slider: 0-10 fuer Musik + Sound. Pixel-Style mit gelbem Thumb auf dunkler Bahn. */
-  .settingsSlider{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,0.12);border-radius:3px;outline:none;cursor:pointer;margin:0}
+  /* touch-action:pan-x ueberschreibt body{touch-action:none}, damit Thumb-Drag auf iOS/Android funktioniert */
+  .settingsSlider{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,0.12);border-radius:3px;outline:none;cursor:pointer;margin:0;touch-action:pan-x;-webkit-user-select:auto;user-select:auto}
   .settingsSlider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #1a1a1a;box-shadow:0 0 6px rgba(255,204,51,0.5)}
   .settingsSlider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #1a1a1a;box-shadow:0 0 6px rgba(255,204,51,0.5)}
   .settingsValue{font-family:var(--pixel);font-size:10px;min-width:22px;text-align:right;color:var(--accent);text-shadow:0 1px 0 rgba(0,0,0,0.6)}
@@ -629,6 +630,9 @@
     currentTrack = null;
   }
   function enableMusic(){
+    // iOS verlangt User-Gesten zum Aktivieren von AudioContext + Audio-Playback.
+    // resumeSfxCtx ist tolerant wenn sfxCtx noch nicht existiert (else-Pfad in try).
+    if(typeof resumeSfxCtx === 'function') resumeSfxCtx();
     if(musicEnabled) return;
     musicEnabled = true;
     if(typeof state !== 'undefined' && (state === STATE.PLAYING || state === STATE.SLIDING || state === STATE.FALLING)){
@@ -655,11 +659,12 @@
     }
   });
 
-  // ---------- SFX-System (Sound Effects) ----------
-  // Teilt sich den Mute-Toggle mit der Musik (musicMuted). Volume kommt aus sfxVolume
-  // (0..10 Slider in den Settings) und wird zu 0..1 gemapped. Jedes play() klont das
-  // Audio-Element (cloneNode), sodass sich Sounds ueberlappen koennen -- wichtig fuer
-  // Footsteps, die alle ~0.17s feuern, und fuer Hit + Die (back-to-back).
+  // ---------- SFX-System (Web Audio API) ----------
+  // Frueher: Audio.cloneNode() pro Play -- auf iOS extrem teuer (Decode + DOM-Allokation
+  // pro Footstep, alle ~0.17s). Hat das Gameplay ruckeln lassen.
+  // Jetzt: AudioContext + vorgeladene AudioBuffers + leichte BufferSourceNodes pro Play.
+  // Source-Nodes sind extrem leichtgewichtig und werden vom Browser automatisch entsorgt
+  // wenn sie zu Ende gespielt haben. Volume via GainNode (live mit Slider).
   const SFX_LIST = {
     step_left:  './sounds/Step_left_final.mp3',
     step_right: './sounds/Step_right_final.mp3',
@@ -671,22 +676,40 @@
     oneup:      './sounds/1Up_grab.mp3',
     money:      './sounds/Money_grab_final.mp3'
   };
-  const sfxBase = {};
-  for(const k of Object.keys(SFX_LIST)){
-    const a = new Audio(SFX_LIST[k]);
-    a.preload = 'auto';
-    sfxBase[k] = a;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let sfxCtx = null;
+  const sfxBuffers = {};
+  try {
+    sfxCtx = new AudioCtx();
+    // Sofort alle Buffers laden -- decodeAudioData ist async, das ist OK.
+    for(const k of Object.keys(SFX_LIST)){
+      fetch(SFX_LIST[k])
+        .then(r => r.arrayBuffer())
+        .then(ab => sfxCtx.decodeAudioData(ab))
+        .then(buf => { sfxBuffers[k] = buf; })
+        .catch(()=>{});
+    }
+  } catch(e){ sfxCtx = null; }
+  function resumeSfxCtx(){
+    if(sfxCtx && sfxCtx.state === 'suspended'){
+      sfxCtx.resume().catch(()=>{});
+    }
   }
   function playSfx(name, opts){
     if(musicMuted) return;
     if(sfxVolume <= 0) return; // Slider auf 0 = stumm
-    const base = sfxBase[name];
-    if(!base) return;
+    if(!sfxCtx) return;
+    const buf = sfxBuffers[name];
+    if(!buf) return; // noch nicht fertig dekodiert -> still ignoriert
+    if(sfxCtx.state === 'suspended') resumeSfxCtx();
     try {
-      const clone = base.cloneNode(true);
+      const src  = sfxCtx.createBufferSource();
+      const gain = sfxCtx.createGain();
       const baseVol = sfxVolume / 10;
-      clone.volume = (opts && opts.volume != null) ? Math.min(opts.volume, baseVol) : baseVol;
-      clone.play().catch(()=>{});
+      gain.gain.value = (opts && opts.volume != null) ? Math.min(opts.volume, baseVol) : baseVol;
+      src.buffer = buf;
+      src.connect(gain).connect(sfxCtx.destination);
+      src.start(0);
     } catch(e){}
   }
   // Step-Detection: pro Frame-Transition (idx 1 = "Frame 2" left, idx 5 = "Frame 6" right)
