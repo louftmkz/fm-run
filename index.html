@@ -46,20 +46,19 @@
     --pixel:'Press Start 2P',ui-monospace,'Courier New',monospace;
   }
   *{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-  html,body{margin:0;padding:0;width:100%;height:100%;height:100dvh;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:var(--pixel);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
-  body{display:flex;justify-content:center;align-items:stretch}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg-0);color:var(--ink);font-family:var(--pixel);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
   /* Mobile-only Layout: auf Desktop wird das Spielfeld auf Phone-Aspect (max 430px) zentriert.
      Auf Mobile fuellt es weiterhin den ganzen Bildschirm.
      Wichtig: height:100dvh explizit damit iOS PWA (Chrome wie Safari) den vollen Screen
      nutzt und nicht nur den "Safe-Viewport" ueber dem Home-Indicator. */
   body{background:#050714}
-  #wrap{position:relative;width:100%;max-width:430px;min-height:0;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(0,0,0,0.6)}
+  #wrap{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(0,0,0,0.6)}
   #gamearea{flex:1;position:relative;min-height:0;overflow:hidden}
   canvas{display:block;width:100%;height:100%;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 70%)}
   .ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column}
   /* Bottom-Nav: Charakter-Buttons + Pause/Play darunter mittig.
      Hoehe = content-based via flex:0 0 auto -> waechst genau soviel wie Inhalt braucht. */
-  .charnav{display:flex;flex-direction:column;flex:0 0 auto;padding:10px 10px 10px 10px;gap:18px;background:linear-gradient(0deg,rgba(0,0,0,0.55),rgba(0,0,0,0.15));border-top:1px solid rgba(255,255,255,0.06)}
+  .charnav{display:flex;flex-direction:column;flex:0 0 auto;padding:10px 10px 10px 10px;gap:18px;border-top:1px solid rgba(255,255,255,0.06)}
   /* Char-Buttons fuellen die volle Breite OHNE Luecken (kein Tap-Through).
      Visueller Abstand via padding innerhalb der Slots, Klick ist auf den ganzen Slot gebunden. */
   .charrow{display:flex;gap:0}
@@ -486,6 +485,10 @@
   const RAMP_SLOPE = 120;
   const RAMP_TRIGGER = 100;
   const RAMP_WIDTH = RAMP_SLOPE + RAMP_TRIGGER; // 220 = volle Sprite-Breite
+  // Safe-Zone NACH der Rampe: in diesem Bereich nach Rampen-Ende darf KEIN Loch
+  // auf der Ziel-Ebene sein. Lou kann waehrend des Slides nicht reagieren -> wuerde
+  // sonst direkt nach dem Aufstieg ins Loch fallen.
+  const SAFE_AFTER_RAMP = 500;
   function levelGap(){ return LEVEL_GAP; }
   function levelFloorY(k){
     // Bildschirm-Y der Etagen-Oberflaeche von Level k.
@@ -1268,9 +1271,8 @@ const LONG_RUN = new SpriteAnim({
     const w = 80 + Math.random()*50;
     const x = W + 20;
     // Skip wenn auf Ebene darunter (lvl-1) eine Rampe in Reichweite ist. Inkludiert
-    // Safe-Buffer NACH dem Slide-Ende, damit Lou nach dem Aufstieg nicht direkt ins
-    // Loch faellt (das er waehrend des Slides nicht sehen konnte).
-    const SAFE_AFTER_RAMP = 500;
+    // SAFE_AFTER_RAMP (Module-Const) NACH dem Slide-Ende, damit Lou nach dem Aufstieg
+    // nicht direkt ins Loch faellt (das er waehrend des Slides nicht sehen konnte).
     for(const rp of ramps){
       if(rp.level !== lvl - 1) continue;
       // Danger-Zone: von Ramp-Start bis Ramp-Ende + Safe-Buffer
@@ -1290,8 +1292,10 @@ const LONG_RUN = new SpriteAnim({
     // Skip wenn auf der Ebene darunter (lvl-1) oder darueber (lvl+1) bereits eine Rampe ist
     // -> kein direktes Stapeln, sequentiell ist OK (verschiedene x-Positionen)
     if(hasOverlapOnLevel(ramps, l => l === lvl - 1 || l === lvl + 1, x, w)) return;
-    // Skip wenn auf der Ebene darueber (lvl+1) ein Loch ist -> Lou wuerde reinfallen
-    if(hasOverlapOnLevel(gaps,  l => l === lvl + 1, x, w)) return;
+    // Skip wenn auf der Ziel-Ebene (lvl+1) ein Loch in Reichweite ist -- inkl.
+    // SAFE_AFTER_RAMP nach dem Rampen-Ende, damit Lou nach dem Aufstieg nicht direkt
+    // ins Loch laeuft (das er waehrend des Slides nicht sehen kann).
+    if(hasOverlapOnLevel(gaps,  l => l === lvl + 1, x, w + SAFE_AFTER_RAMP)) return;
     ramps.push({x, w, level: lvl});
   }
   function spawnObstacle(lvl){
@@ -1300,6 +1304,23 @@ const LONG_RUN = new SpriteAnim({
     const x = W + 20;
     const maxObstacleSpan = 75; // konservativer Range fuer Single/Tall/Double-Combo
     if(hasOverlapOnLevel(gaps, l => l === lvl, x, maxObstacleSpan)) return;
+
+    // Wenn Level eigenes Obstacle-Sprite hat: Hitbox upfront auf Sprite-Native*1.5 setzen
+    // (Theater Stage 65x58 -> 97x87). Patterns sorgen dann fuer korrekten visuellen Abstand,
+    // statt erst beim Render zu skalieren und dadurch zu ueberlappen.
+    if(LEVEL_OBSTACLE_SPRITES[lvl]){
+      const sw = 97, sh = 87; // 65*1.5 = 97.5 -> auf int gerundet
+      const r = Math.random();
+      if(r < 0.80){
+        obstacles.push({x, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true});
+      } else {
+        // Double-Pattern: zweites Sprite mit visuellem Abstand von ~50px nach erstem Sprite-Ende
+        obstacles.push({x, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true});
+        obstacles.push({x: x + sw + 50, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true});
+      }
+      return;
+    }
+
     const r = Math.random();
     if(r < 0.55){
       const w = 24 + Math.random()*22;
