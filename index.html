@@ -763,17 +763,19 @@ const LONG_RUN = new SpriteAnim({
   ];
   // Legacy-Mapping: wird nur noch fuer die procedural Fallback-Auswahl gebraucht.
   const LEVEL_COIN_SPRITES = [null, COIN_SPRITE_1, COIN_SPRITE_1, COIN_SPRITE_1, COIN_SPRITE_STACK, COIN_SPRITE_BAG, COIN_SPRITE_CASE, COIN_SPRITE_POT];
-  // Per-Level Obstacle-Sprites. null = procedural pink-gradient Fallback.
+  // Per-Level Obstacle-Sprites als SpriteAnim. null = procedural pink-gradient Fallback.
   // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
+  // Statische Sprites laufen als frames:1 (keine Animation sichtbar). Spritesheets
+  // sind horizontal angeordnet (alle Frames in einer Reihe).
   const LEVEL_OBSTACLE_SPRITES = [
-    null,                              // 0 Underground
-    null,                              // 1 Gutter & Ghetto
-    null,                              // 2 Training Room
-    null,                              // 3 Night Club
-    null,                              // 4 Battle Ground
-    null,                              // 5 TV Studio
-    './sprites/obstacle-level-5.png',  // 6 Theater Stage -- erstes Obstacle-Design
-    null                               // 7 Spaceship
+    new SpriteAnim({ src: './sprites/obstacle-level-minus-1.png', frames: 8, frameW: 78, frameH: 70, fps: 10, loop: true }), // 0 Underground (8 frames)
+    new SpriteAnim({ src: './sprites/obstacle-level-0.png',       frames: 4, frameW: 34, frameH: 60, fps: 8,  loop: true }), // 1 Gutter & Ghetto (4 frames)
+    null,                                                                                                    // 2 Training Room
+    null,                                                                                                    // 3 Night Club
+    null,                                                                                                    // 4 Battle Ground
+    null,                                                                                                    // 5 TV Studio
+    new SpriteAnim({ src: './sprites/obstacle-level-5.png',       frames: 1, frameW: 65, frameH: 58, fps: 1,  loop: true }), // 6 Theater Stage (static, 1 frame)
+    null                                                                                                     // 7 Spaceship
   ];
   // Per-Level Ramp-Sprites (Parallelogramm 229x192 native, gerendert auf 220x192).
   // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
@@ -1305,11 +1307,13 @@ const LONG_RUN = new SpriteAnim({
     const maxObstacleSpan = 75; // konservativer Range fuer Single/Tall/Double-Combo
     if(hasOverlapOnLevel(gaps, l => l === lvl, x, maxObstacleSpan)) return;
 
-    // Wenn Level eigenes Obstacle-Sprite hat: Hitbox upfront auf Sprite-Native*1.5 setzen
-    // (Theater Stage 65x58 -> 97x87). Patterns sorgen dann fuer korrekten visuellen Abstand,
-    // statt erst beim Render zu skalieren und dadurch zu ueberlappen.
-    if(LEVEL_OBSTACLE_SPRITES[lvl]){
-      const sw = 97, sh = 87; // 65*1.5 = 97.5 -> auf int gerundet
+    // Wenn Level eigenes Obstacle-Sprite hat: Hitbox upfront auf SpriteAnim.frameW/H * 1.5 setzen.
+    // Theater Stage 65x58 -> 97x87. Gutter 34x60 -> 51x90. Underground 78x70 -> 117x105.
+    // Patterns sorgen dann fuer korrekten visuellen Abstand statt erst beim Render zu skalieren.
+    const anim = LEVEL_OBSTACLE_SPRITES[lvl];
+    if(anim){
+      const sw = Math.round(anim.frameW * 1.5);
+      const sh = Math.round(anim.frameH * 1.5);
       const r = Math.random();
       if(r < 0.80){
         obstacles.push({x, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true});
@@ -2206,21 +2210,21 @@ const LONG_RUN = new SpriteAnim({
     }
 
     // Hindernisse -- y aus level abgeleitet, sodass sie mit der Welt mitfahren.
-    // Pro Ebene optional ein Sprite (LEVEL_OBSTACLE_SPRITES); sonst procedural pink-gradient.
+    // Pro Ebene optional ein SpriteAnim (LEVEL_OBSTACLE_SPRITES); sonst procedural pink-gradient.
+    // Animated Spritesheets (Underground 8f, Gutter 4f) werden ueber renderTime durchgeloopt.
     const OBSTACLE_SPRITE_SCALE = 1.5;
     for(const o of obstacles){
-      const sprite = getLevelSpriteImage(LEVEL_OBSTACLE_SPRITES, o.level);
-      // Wenn ein Sprite existiert und geladen ist: Hitbox einmalig an Sprite-Native*1.5 binden,
-      // damit der visuelle Sprite nicht gestreckt wird und Kollision visuell stimmt.
-      if(sprite && sprite.complete && sprite.naturalWidth > 0 && !o._spriteSized){
-        o.w = sprite.naturalWidth  * OBSTACLE_SPRITE_SCALE;
-        o.h = sprite.naturalHeight * OBSTACLE_SPRITE_SCALE;
+      const anim = LEVEL_OBSTACLE_SPRITES[o.level]; // SpriteAnim oder null
+      // Defensive: falls Spawn nicht setzen konnte (Anim noch nicht ready), nachholen.
+      if(anim && !o._spriteSized){
+        o.w = Math.round(anim.frameW * OBSTACLE_SPRITE_SCALE);
+        o.h = Math.round(anim.frameH * OBSTACLE_SPRITE_SCALE);
         o._spriteSized = true;
       }
       const oy = levelFloorY(o.level) - o.h;
       if(oy < -200 || oy > H + 200) continue;
-      if(sprite && sprite.complete && sprite.naturalWidth > 0){
-        ctx.drawImage(sprite, Math.round(o.x), Math.round(oy), Math.round(o.w), Math.round(o.h));
+      if(anim && anim.ready){
+        anim.draw(ctx, renderTime, o.x, oy, o.w, o.h, true);
       } else {
         const grd = ctx.createLinearGradient(o.x, oy, o.x, oy + o.h);
         grd.addColorStop(0,'#ff4d8d');
