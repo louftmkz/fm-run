@@ -147,6 +147,12 @@
   .toggleBtn{font-family:var(--pixel);font-size:10px;padding:8px 14px;border-radius:6px;background:var(--accent);color:#1a1a1a;border:0;cursor:pointer;letter-spacing:1px;min-width:60px;transition:transform .08s ease}
   .toggleBtn:active{transform:scale(.94)}
   .toggleBtn[data-on="false"]{background:rgba(255,255,255,0.12);color:var(--ink-dim)}
+  /* Volume-Slider: 0-10 fuer Musik + Sound. Pixel-Style mit gelbem Thumb auf dunkler Bahn. */
+  .settingsSlider{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,0.12);border-radius:3px;outline:none;cursor:pointer;margin:0}
+  .settingsSlider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #1a1a1a;box-shadow:0 0 6px rgba(255,204,51,0.5)}
+  .settingsSlider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #1a1a1a;box-shadow:0 0 6px rgba(255,204,51,0.5)}
+  .settingsValue{font-family:var(--pixel);font-size:10px;min-width:22px;text-align:right;color:var(--accent);text-shadow:0 1px 0 rgba(0,0,0,0.6)}
+  .settingsLabel.lbl-slider{min-width:54px}
   .btnSmall{padding:10px 18px;font-size:10px}
   /* Home-Button in Pause/GameOver: transparent + outline statt voller Accent-Fill */
   .btnHome{background:rgba(255,255,255,0.10) !important;color:var(--ink) !important;box-shadow:none !important;border:2px solid rgba(255,255,255,0.22) !important;margin-top:6px}
@@ -238,8 +244,14 @@
         <div class="modalCard">
           <h2 class="modalTitle">EINSTELLUNGEN</h2>
           <div class="settingsRow">
-            <span class="settingsLabel">Sound</span>
-            <button class="toggleBtn" id="modalSoundToggle" data-on="true">AN</button>
+            <span class="settingsLabel lbl-slider">Musik</span>
+            <input type="range" min="0" max="10" step="1" class="settingsSlider" id="musicSlider" value="4">
+            <span class="settingsValue" id="musicValue">4</span>
+          </div>
+          <div class="settingsRow">
+            <span class="settingsLabel lbl-slider">Sound</span>
+            <input type="range" min="0" max="10" step="1" class="settingsSlider" id="sfxSlider" value="7">
+            <span class="settingsValue" id="sfxValue">7</span>
           </div>
           <button class="btn btnSmall" id="btnSettingsClose">OK</button>
         </div>
@@ -559,13 +571,26 @@
   // ---------- Musik-System ----------
   // menu.mp3 (Start), gameplay.mp3 (PLAYING/SLIDING/FALLING). Game-Over bleibt stumm (kommt spaeter).
   // Autoplay-Restriction: enableMusic() wird beim ersten User-Tap aufgerufen.
-  const MUSIC_VOL = 0.4;
+  // Volumes 0-10 (Slider in den Settings). Werte werden auf 0..1 gemapped.
+  // Defaults: Musik 4 (=0.4, wie vorher), Sound 7 (=0.7, wie vorher).
+  let musicVolume = 4; // 0..10
+  let sfxVolume   = 7; // 0..10
+  try {
+    const mv = parseInt(localStorage.getItem('fmrun_music_vol'), 10);
+    if(!isNaN(mv) && mv >= 0 && mv <= 10) musicVolume = mv;
+    const sv = parseInt(localStorage.getItem('fmrun_sfx_vol'), 10);
+    if(!isNaN(sv) && sv >= 0 && sv <= 10) sfxVolume = sv;
+  } catch(e){}
   const audioMenu = new Audio('./music/menu.mp3');
-  audioMenu.loop = true; audioMenu.volume = MUSIC_VOL; audioMenu.preload = 'auto';
+  audioMenu.loop = true; audioMenu.volume = musicVolume / 10; audioMenu.preload = 'auto';
   const audioGame = new Audio('./music/gameplay.mp3');
-  audioGame.loop = true; audioGame.volume = MUSIC_VOL; audioGame.preload = 'auto';
+  audioGame.loop = true; audioGame.volume = musicVolume / 10; audioGame.preload = 'auto';
   let musicMuted = false;
   try { musicMuted = localStorage.getItem('fmrun_muted') === '1'; } catch(e){}
+  function applyMusicVolume(){
+    audioMenu.volume = musicVolume / 10;
+    audioGame.volume = musicVolume / 10;
+  }
   let currentTrack = null;
   let musicEnabled = false;
   function applyMuteState(){
@@ -631,10 +656,10 @@
   });
 
   // ---------- SFX-System (Sound Effects) ----------
-  // Teilt sich den Mute-Toggle mit der Musik (musicMuted). Jedes play() klont das
+  // Teilt sich den Mute-Toggle mit der Musik (musicMuted). Volume kommt aus sfxVolume
+  // (0..10 Slider in den Settings) und wird zu 0..1 gemapped. Jedes play() klont das
   // Audio-Element (cloneNode), sodass sich Sounds ueberlappen koennen -- wichtig fuer
   // Footsteps, die alle ~0.17s feuern, und fuer Hit + Die (back-to-back).
-  const SFX_VOL = 0.7;
   const SFX_LIST = {
     step_left:  './sounds/Step_left_final.mp3',
     step_right: './sounds/Step_right_final.mp3',
@@ -654,11 +679,13 @@
   }
   function playSfx(name, opts){
     if(musicMuted) return;
+    if(sfxVolume <= 0) return; // Slider auf 0 = stumm
     const base = sfxBase[name];
     if(!base) return;
     try {
       const clone = base.cloneNode(true);
-      clone.volume = (opts && opts.volume != null) ? opts.volume : SFX_VOL;
+      const baseVol = sfxVolume / 10;
+      clone.volume = (opts && opts.volume != null) ? Math.min(opts.volume, baseVol) : baseVol;
       clone.play().catch(()=>{});
     } catch(e){}
   }
@@ -1076,20 +1103,37 @@ const LONG_RUN = new SpriteAnim({
   document.getElementById('btnOverHome')?.addEventListener('click', (e) => { e.stopPropagation(); returnToStart(); });
   document.getElementById('btnPauseHome')?.addEventListener('click', (e) => { e.stopPropagation(); returnToStart(); });
 
-  // ---------- Settings-Modal (Sound an/aus) ----------
+  // ---------- Settings-Modal (Musik + Sound Volume-Slider) ----------
   const screenSettings = document.getElementById('screenSettings');
   const btnSettings = document.getElementById('btnSettings');
   const btnSettingsClose = document.getElementById('btnSettingsClose');
-  const modalSoundToggle = document.getElementById('modalSoundToggle');
-  function updateModalSoundToggle(){
-    if(!modalSoundToggle) return;
-    const on = !musicMuted;
-    modalSoundToggle.dataset.on = on ? 'true' : 'false';
-    modalSoundToggle.textContent = on ? 'AN' : 'AUS';
+  const musicSliderEl = document.getElementById('musicSlider');
+  const musicValueEl  = document.getElementById('musicValue');
+  const sfxSliderEl   = document.getElementById('sfxSlider');
+  const sfxValueEl    = document.getElementById('sfxValue');
+  function syncSliderUI(){
+    if(musicSliderEl) musicSliderEl.value = String(musicVolume);
+    if(musicValueEl)  musicValueEl.textContent = String(musicVolume);
+    if(sfxSliderEl)   sfxSliderEl.value = String(sfxVolume);
+    if(sfxValueEl)    sfxValueEl.textContent = String(sfxVolume);
   }
+  musicSliderEl?.addEventListener('input', (e) => {
+    musicVolume = parseInt(e.target.value, 10) || 0;
+    if(musicValueEl) musicValueEl.textContent = String(musicVolume);
+    applyMusicVolume();
+    try { localStorage.setItem('fmrun_music_vol', String(musicVolume)); } catch(_){}
+  });
+  sfxSliderEl?.addEventListener('input', (e) => {
+    sfxVolume = parseInt(e.target.value, 10) || 0;
+    if(sfxValueEl) sfxValueEl.textContent = String(sfxVolume);
+    try { localStorage.setItem('fmrun_sfx_vol', String(sfxVolume)); } catch(_){}
+  });
+  // Legacy-Stub: toggleMute() rief frueher updateModalSoundToggle. Slider-UI ist
+  // unabhaengig vom Mute-Toggle, daher hier nur ein No-Op (haelt Aufrufer stabil).
+  function updateModalSoundToggle(){ /* deprecated: durch Slider ersetzt */ }
   function openSettings(){
     enableMusic();
-    updateModalSoundToggle();
+    syncSliderUI();
     screenSettings?.classList.remove('hidden');
   }
   function closeSettings(){
@@ -1097,12 +1141,8 @@ const LONG_RUN = new SpriteAnim({
   }
   btnSettings?.addEventListener('click', (e) => { e.stopPropagation(); openSettings(); });
   btnSettingsClose?.addEventListener('click', (e) => { e.stopPropagation(); closeSettings(); });
-  modalSoundToggle?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleMute();
-    updateModalSoundToggle();
-  });
-  updateModalSoundToggle();
+  // Initial-Sync der Slider-UI (zeigt persistierten Wert wenn Modal noch nicht geoeffnet)
+  syncSliderUI();
 
   // ---------- Pause / Resume ----------
   // Pause friert update(dt) ein -- Sidescroll, Spawning, Physik stehen still.
