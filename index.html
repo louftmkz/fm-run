@@ -525,6 +525,26 @@
       updateBestDisplay();
     }
   });
+  // Coins werden von ranking.js (Server) synced nach Login + Game-Over.
+  // Event 'fmrun:coinsSynced' updated lokale 'coinsTotal' + 'coinsAtRunStart' + Display.
+  //   - detail.reset = true (Logout): hart auf den Wert zurücksetzen.
+  //   - sonst (Sync nach Game-Over / Login-Merge): nur nach oben shiften, damit
+  //     Pickups eines bereits gestarteten neuen Runs nicht verloren gehen,
+  //     falls die RPC-Response erst nach Reset() ankommt.
+  window.addEventListener('fmrun:coinsSynced', (e) => {
+    const detail = (e && e.detail) || {};
+    const serverCoins = detail.coins | 0;
+    if(detail.reset){
+      coinsTotal = serverCoins;
+      coinsAtRunStart = serverCoins;
+    } else if(serverCoins > coinsTotal){
+      const shift = serverCoins - coinsTotal;
+      coinsTotal = serverCoins;
+      coinsAtRunStart += shift; // Delta des laufenden Runs bleibt erhalten
+    }
+    const el = document.getElementById('coinsValue');
+    if(el) el.textContent = coinsTotal.toLocaleString('de-DE');
+  });
 
   // ---------- Lives / 1up ----------
   // 1ups spawnen nur als Teil des ramp_oneup Patterns auf Ebene 6.
@@ -931,6 +951,7 @@ const LONG_RUN = new SpriteAnim({
   const COIN_Y_OFFSET = 30; // Hoehe ueber dem Boden -- auf Spielermitte
   let coinsTotal = 0;
   try { coinsTotal = parseInt(localStorage.getItem('fmrun_coins') || '0', 10) || 0; } catch(e){}
+  let coinsAtRunStart = coinsTotal;
   document.getElementById('coinsValue').textContent = coinsTotal.toLocaleString('de-DE');
 
   // ---------- Charaktere ----------
@@ -990,7 +1011,9 @@ const LONG_RUN = new SpriteAnim({
     oneUps.length = 0;
     popups.length = 0;
     particles.length = 0;
-    // coinsTotal NICHT zuruecksetzen -- bleibt rundenuebergreifend erhalten
+    // coinsTotal NICHT zuruecksetzen -- bleibt rundenuebergreifend erhalten.
+    // coinsAtRunStart merkt sich den Startwert, damit Game-Over das Delta kennt.
+    coinsAtRunStart = coinsTotal;
     // Lives + Eligibility per Run zuruecksetzen
     lives = 0;
     // (nextOneUpAtDistance wird oben gesetzt)
@@ -1309,6 +1332,13 @@ const LONG_RUN = new SpriteAnim({
     hideMuteButton();
     stopAllMusic(); // Game-Over bleibt stumm (kommt spaeter eigener Sound dazu)
     try { window.FMRanking && window.FMRanking.submitScore(m); } catch(e){}
+    try {
+      const coinsDelta = coinsTotal - coinsAtRunStart;
+      coinsAtRunStart = coinsTotal; // Reentry-Schutz: nächster Trigger sieht delta = 0
+      if(coinsDelta > 0 && window.FMRanking && window.FMRanking.submitCoinsDelta){
+        window.FMRanking.submitCoinsDelta(coinsDelta);
+      }
+    } catch(e){}
     puff(player.x + player.w/2, player.y + player.h/2, 24, true);
   }
 
