@@ -55,7 +55,7 @@
     profile = null;
     if(!session || !session.userId) return;
     const { data, error } = await sb.from('profiles')
-      .select('id, handle, best_distance').eq('id', session.userId).maybeSingle();
+      .select('id, handle, best_distance, coins_balance').eq('id', session.userId).maybeSingle();
     if(!error && data) profile = data;
     // Lokalen Highscore migrieren (greatest() ist idempotent)
     if(profile && session && session.userId){
@@ -144,7 +144,7 @@
 
       // Fetch profile by handle (case-insensitive)
       const { data: profiles, error } = await sb.from('profiles')
-        .select('id, handle, password_hash, best_distance')
+        .select('id, handle, password_hash, best_distance, coins_balance')
         .ilike('handle', handle)
         .maybeSingle();
 
