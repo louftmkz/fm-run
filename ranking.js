@@ -68,6 +68,34 @@
       // Sync server best_distance -> localStorage damit main script updateBestDisplay() macht
       try { localStorage.setItem('fmrun_best', String(profile.best_distance || 0)); } catch(e){}
       window.dispatchEvent(new CustomEvent('fmrun:bestSynced', { detail: { best: profile.best_distance || 0 } }));
+      // Coins-Merge: lokale (anonym gesammelte) Coins dem Server gutschreiben.
+      // Nur wenn local > server, sonst Drift bei Tab-Reload.
+      let localCoins = 0;
+      try { localCoins = parseInt(localStorage.getItem('fmrun_coins') || '0', 10) || 0; } catch(e){}
+      const serverCoins = Number(profile.coins_balance || 0);
+      let mergedCoins = serverCoins;
+      if(localCoins > serverCoins){
+        const delta = Math.min(localCoins - serverCoins, 1000000);
+        try {
+          const { data: newTotal, error } = await sb.rpc('add_coins', {
+            p_user_id: session.userId,
+            p_delta: delta,
+          });
+          if(!error && typeof newTotal !== 'undefined'){
+            mergedCoins = Number(newTotal);
+            profile.coins_balance = mergedCoins;
+          } else if(error){
+            // Merge fehlgeschlagen: lokal NICHT überschreiben, beim nächsten Login retry.
+            console.warn('[ranking] coins merge failed:', error);
+            mergedCoins = localCoins;
+          }
+        } catch(e){
+          console.warn('[ranking] coins merge error:', e);
+          mergedCoins = localCoins;
+        }
+      }
+      try { localStorage.setItem('fmrun_coins', String(mergedCoins)); } catch(e){}
+      window.dispatchEvent(new CustomEvent('fmrun:coinsSynced', { detail: { coins: mergedCoins } }));
     }
   }
 
@@ -176,6 +204,9 @@
   function signOut(){
     clearSession();
     session = null; profile = null;
+    // Coins lokal auf 0 zurücksetzen — verhindert Doppel-Cashout bei Account-Switch.
+    try { localStorage.setItem('fmrun_coins', '0'); } catch(e){}
+    window.dispatchEvent(new CustomEvent('fmrun:coinsSynced', { detail: { coins: 0, reset: true } }));
     updateAccountChip(); hideModal();
     toast('Abgemeldet');
   }
