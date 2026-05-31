@@ -630,6 +630,41 @@
     }
   });
 
+  // ---------- SFX-System (Sound Effects) ----------
+  // Teilt sich den Mute-Toggle mit der Musik (musicMuted). Jedes play() klont das
+  // Audio-Element (cloneNode), sodass sich Sounds ueberlappen koennen -- wichtig fuer
+  // Footsteps, die alle ~0.17s feuern, und fuer Hit + Die (back-to-back).
+  const SFX_VOL = 0.7;
+  const SFX_LIST = {
+    step_left:  './sounds/Step_left_final.mp3',
+    step_right: './sounds/Step_right_final.mp3',
+    jump:       './sounds/Jump_final.mp3',
+    hit:        './sounds/Hit_by-Obstacle_final.mp3', // Achtung: Bindestrich im Dateinamen
+    destroy:    './sounds/Destroy_Obstacle_final.mp3',
+    die:        './sounds/Die_by_Obstacle_final.mp3',
+    fall:       './sounds/Fall_and_Die_final.mp3',
+    oneup:      './sounds/1Up_grab.mp3',
+    money:      './sounds/Money_grab_final.mp3'
+  };
+  const sfxBase = {};
+  for(const k of Object.keys(SFX_LIST)){
+    const a = new Audio(SFX_LIST[k]);
+    a.preload = 'auto';
+    sfxBase[k] = a;
+  }
+  function playSfx(name, opts){
+    if(musicMuted) return;
+    const base = sfxBase[name];
+    if(!base) return;
+    try {
+      const clone = base.cloneNode(true);
+      clone.volume = (opts && opts.volume != null) ? opts.volume : SFX_VOL;
+      clone.play().catch(()=>{});
+    } catch(e){}
+  }
+  // Step-Detection: pro Frame-Transition (idx 1 = "Frame 2" left, idx 5 = "Frame 6" right)
+  let lastFootFrame = -1;
+
   // ---------- Sprite-System (generisch, fuer Helden-Animationen) ----------
   // Wiederverwendbar fuer weitere Helden / Animations-States (jump, slide, idle).
   // Charakter haengt eine SpriteAnim-Instanz an seine Definition; im Render wird
@@ -985,6 +1020,7 @@ const LONG_RUN = new SpriteAnim({
     player.onGround = false;
     player.jumpsUsed = 1;
     puff(player.x + player.w/2, player.y + player.h, 6);
+    playSfx('jump');
   }
 
   // Lou auf Top-Level: Rampe wird zum Boost-Pad. Hoher Bogen (~200px Hoehe, 1.4s Air),
@@ -1765,6 +1801,8 @@ const LONG_RUN = new SpriteAnim({
         player.y += player.vy * dt;
         if(player.y > H + 50){
           loseLifeOrGameOver();
+          // Wenn der Sturz von der untersten Ebene zum Tod fuehrt: Fall-Sound
+          if(state === STATE.OVER) playSfx('fall');
         } else {
           tickScrollingWorld(dt);
         }
@@ -1801,7 +1839,24 @@ const LONG_RUN = new SpriteAnim({
     }
     player.runFrame += dt * (player.onGround ? 14 : 0);
     // Sprite-Time akkumuliert nur am Boden; in der Luft friert das Sprite ein
-    if(player.onGround) player.spriteTime += dt;
+    if(player.onGround){
+      player.spriteTime += dt;
+      // Footstep-SFX bei Frame-Transitions. "Frame 2" und "Frame 6" 1-indexed
+      // entsprechen Code-Index 1 (left) und 5 (right). Wird ueber ALLE Charaktere
+      // gleich gehandhabt -- gilt fuer Lou/Sasch/Shizzo/LonG identisch.
+      const sprite = (CHARACTERS[activeCharacter] || CHARACTERS.lou).sprite;
+      if(sprite){
+        const fIdx = sprite.frameAt(player.spriteTime, true);
+        if(fIdx !== lastFootFrame){
+          if(fIdx === 1)      playSfx('step_left');
+          else if(fIdx === 5) playSfx('step_right');
+          lastFootFrame = fIdx;
+        }
+      }
+    } else {
+      // In der Luft -> beim naechsten Touchdown soll der erste Stride wieder triggern
+      lastFootFrame = -1;
+    }
 
     // Score, Spawn, Sidescroll, BG-Animation
     tickScrollingWorld(dt);
@@ -1911,6 +1966,7 @@ const LONG_RUN = new SpriteAnim({
           const hx = o.x + inX, hw = o.w - 2*inX;
           if(px < hx + hw && px + pw > hx && py < oy + o.h && py + ph > oy){
             puff(o.x + o.w/2, oy + o.h/2, 14, true);
+            playSfx('destroy');
             obstacles.splice(i, 1);
           }
         }
@@ -1921,7 +1977,10 @@ const LONG_RUN = new SpriteAnim({
           const inX = o.hitInsetX || 0;
           const hx = o.x + inX, hw = o.w - 2*inX;
           if(px < hx + hw && px + pw > hx && py < oy + o.h && py + ph > oy){
+            playSfx('hit'); // immer bei Treffer (Leben verlieren ODER sterben)
             loseLifeOrGameOver();
+            // Wenn der Hit zum Tod fuehrt: Die-Sound direkt danach
+            if(state === STATE.OVER) playSfx('die');
             break;
           }
         }
@@ -1956,6 +2015,7 @@ const LONG_RUN = new SpriteAnim({
             popups.push({ x: u.x, y: uy - 10, text: '+100', age: 0, life: 1.0 });
           }
           puff(u.x, uy, 16, true);
+          playSfx('oneup');
           oneUps.splice(i, 1);
         }
       }
@@ -1982,6 +2042,7 @@ const LONG_RUN = new SpriteAnim({
           try { localStorage.setItem('fmrun_coins', String(coinsTotal)); } catch(e){}
           document.getElementById('coinsValue').textContent = coinsTotal.toLocaleString('de-DE');
           popups.push({ x: c.x, y: cy - 10, text: '+' + value, age: 0, life: 0.9 });
+          playSfx('money');
           coins.splice(i, 1);
         }
       }
