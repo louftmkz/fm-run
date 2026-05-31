@@ -81,6 +81,10 @@
   .charbtn[data-char="lou"]{border-color:rgba(126,182,255,0.45)}
   .charbtn[data-char="lou"].active{border-color:var(--lou);box-shadow:0 0 18px rgba(126,182,255,0.75),inset 0 0 0 1px rgba(126,182,255,0.55)}
   .charbtn[data-char="lou"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--lou)}
+  /* Sasch = der Obstacle-Crusher -> rote Outline (default + active glow), visuelle Verbindung zu den Obstacle-Sprites */
+  .charbtn[data-char="sasch"]{border-color:rgba(255,85,102,0.45)}
+  .charbtn[data-char="sasch"].active{border-color:var(--danger);box-shadow:0 0 18px rgba(255,85,102,0.75),inset 0 0 0 1px rgba(255,85,102,0.55)}
+  .charbtn[data-char="sasch"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--danger)}
   /* Controlrow: IMMER vorhanden mit fixer Hoehe -> Charnav springt nie.
      - Pause-Button centered via flex
      - Mute + Settings absolut links (gleiche Y wie Pause) */
@@ -2149,8 +2153,9 @@ const LONG_RUN = new SpriteAnim({
   // Ramp: blauer Glow + 1px Outline, pre-baked pro Image (one-time render).
   // Trick: jeder Frame wird zuerst in einen offscreen-Canvas MIT PADDING gerendert.
   // Dadurch kann der shadow-Gauss frei in die Padding-Zone "bleeden" -- kein Clip am Sprite-Frame.
-  const MONEY_GLOW_COLOR = '#8cf0aa';
-  const RAMP_GLOW_COLOR  = '#7eb6ff';
+  const MONEY_GLOW_COLOR    = '#8cf0aa';
+  const RAMP_GLOW_COLOR     = '#7eb6ff';
+  const OBSTACLE_OUTLINE_COLOR = '#ff5566';
   const GLOW_PAD = 32;
   function ensureRampGlowCanvas(img){
     if(!img.complete || !img.naturalWidth) return false;
@@ -2223,6 +2228,36 @@ const LONG_RUN = new SpriteAnim({
     ctx.drawImage(pad, destX, destY, dW, dH);
     ctx.shadowBlur = 10;
     ctx.drawImage(pad, destX, destY, dW, dH);
+    ctx.shadowBlur = 0;
+    const OUT = Math.max(1, Math.round(scaleX));
+    const dirs = [[-OUT,0],[OUT,0],[0,-OUT],[0,OUT]];
+    for(const [ox, oy] of dirs){
+      ctx.shadowOffsetX = ox;
+      ctx.shadowOffsetY = oy;
+      ctx.drawImage(pad, destX, destY, dW, dH);
+    }
+    ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; ctx.shadowBlur = 0;
+  }
+
+  // Obstacle: nur eine 1px rote Outline (kein Soft-Glow). Pre-baked Frame-Canvas wird
+  // 4x mit Directional-Shadow gerendert (top/bottom/left/right Offset) -- der Sprite
+  // wird durch die Drawn-Image-Calls implizit auch dargestellt, also kein zusaetzlicher
+  // Center-Draw noetig. Funktioniert per-Frame fuer animated SpriteAnims.
+  function drawWithRedOutline(sprite, time, dx, dy, dw, dh){
+    if(!sprite.ready) return;
+    ensureSpritePad(sprite);
+    const sw = sprite.frameW, sh = sprite.frameH;
+    const idx = sprite.frameAt(time, true);
+    const pad = sprite._padCanvas;
+    const pCtx = sprite._padCtx;
+    pCtx.clearRect(0, 0, pad.width, pad.height);
+    pCtx.drawImage(sprite.img, idx*sw, 0, sw, sh, GLOW_PAD, GLOW_PAD, sw, sh);
+    const scaleX = dw / sw, scaleY = dh / sh;
+    const destX = Math.round(dx - GLOW_PAD * scaleX);
+    const destY = Math.round(dy - GLOW_PAD * scaleY);
+    const dW = Math.round(pad.width  * scaleX);
+    const dH = Math.round(pad.height * scaleY);
+    ctx.shadowColor = OBSTACLE_OUTLINE_COLOR;
     ctx.shadowBlur = 0;
     const OUT = Math.max(1, Math.round(scaleX));
     const dirs = [[-OUT,0],[OUT,0],[0,-OUT],[0,OUT]];
@@ -2389,7 +2424,7 @@ const LONG_RUN = new SpriteAnim({
       const oy = levelFloorY(o.level) - o.h;
       if(oy < -200 || oy > H + 200) continue;
       if(anim && anim.ready){
-        anim.draw(ctx, renderTime, o.x, oy, o.w, o.h, true);
+        drawWithRedOutline(anim, renderTime, o.x, oy, o.w, o.h);
       } else {
         const grd = ctx.createLinearGradient(o.x, oy, o.x, oy + o.h);
         grd.addColorStop(0,'#ff4d8d');
