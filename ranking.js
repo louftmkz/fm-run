@@ -201,6 +201,24 @@
     }
   }
 
+  // ---------- Coins-Submission ----------
+  async function submitCoinsDelta(delta){
+    const d = Math.max(0, Math.floor(delta || 0));
+    if(!cfgOk() || !session || !session.userId || d <= 0) return;
+    try {
+      const { data, error } = await sb.rpc('add_coins', {
+        p_user_id: session.userId,
+        p_delta: d,
+      });
+      if(error){ console.warn('[ranking] coins sync failed:', error); return; }
+      const newTotal = Number(data);
+      try { localStorage.setItem('fmrun_coins', String(newTotal)); } catch(e){}
+      window.dispatchEvent(new CustomEvent('fmrun:coinsSynced', { detail: { coins: newTotal } }));
+    } catch(e){
+      console.warn('[ranking] coins sync error:', e);
+    }
+  }
+
   // ---------- Board-Funktionen ----------
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -431,6 +449,6 @@
     });
   }
 
-  window.FMRanking = { init, submitScore };
+  window.FMRanking = { init, submitScore, submitCoinsDelta };
   document.addEventListener('DOMContentLoaded', init);
 })();
