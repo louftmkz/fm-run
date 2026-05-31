@@ -1310,17 +1310,22 @@ const LONG_RUN = new SpriteAnim({
     // Wenn Level eigenes Obstacle-Sprite hat: Hitbox upfront auf SpriteAnim.frameW/H * 1.5 setzen.
     // Theater Stage 65x58 -> 97x87. Gutter 34x60 -> 51x90. Underground 78x70 -> 117x105.
     // Patterns sorgen dann fuer korrekten visuellen Abstand statt erst beim Render zu skalieren.
+    // hitInsetX = Pixel die links + rechts vom Sprite NICHT in der Kollision liegen
+    // (effektive Hitbox-Breite = w - 2*hitInsetX). 0 = volle Sprite-Breite.
     const anim = LEVEL_OBSTACLE_SPRITES[lvl];
     if(anim){
       const sw = Math.round(anim.frameW * 1.5);
       const sh = Math.round(anim.frameH * 1.5);
+      // Underground (lvl 0): Sprite ist sehr breit (117px). Hitbox auf die Haelfte
+      // reduzieren -- visuell unveraendert, aber Player kann am Rand vorbei.
+      const hitInsetX = (lvl === 0) ? Math.round(sw / 4) : 0;
       const r = Math.random();
       if(r < 0.80){
-        obstacles.push({x, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true});
+        obstacles.push({x, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true, hitInsetX});
       } else {
         // Double-Pattern: zweites Sprite mit visuellem Abstand von ~50px nach erstem Sprite-Ende
-        obstacles.push({x, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true});
-        obstacles.push({x: x + sw + 50, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true});
+        obstacles.push({x, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true, hitInsetX});
+        obstacles.push({x: x + sw + 50, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true, hitInsetX});
       }
       return;
     }
@@ -1900,7 +1905,11 @@ const LONG_RUN = new SpriteAnim({
           const o = obstacles[i];
           if(o.level !== currentLevel) continue;
           const oy = levelFloorY(o.level) - o.h;
-          if(px < o.x + o.w && px + pw > o.x && py < oy + o.h && py + ph > oy){
+          // Hitbox-Inset: visuelle Breite ist o.w, aber Kollisions-Breite kann
+          // schmaeler sein (z.B. Underground -- breites Sprite, kleine Kern-Hitbox).
+          const inX = o.hitInsetX || 0;
+          const hx = o.x + inX, hw = o.w - 2*inX;
+          if(px < hx + hw && px + pw > hx && py < oy + o.h && py + ph > oy){
             puff(o.x + o.w/2, oy + o.h/2, 14, true);
             obstacles.splice(i, 1);
           }
@@ -1909,7 +1918,9 @@ const LONG_RUN = new SpriteAnim({
         for(const o of obstacles){
           if(o.level !== currentLevel) continue;
           const oy = levelFloorY(o.level) - o.h;
-          if(px < o.x + o.w && px + pw > o.x && py < oy + o.h && py + ph > oy){
+          const inX = o.hitInsetX || 0;
+          const hx = o.x + inX, hw = o.w - 2*inX;
+          if(px < hx + hw && px + pw > hx && py < oy + o.h && py + ph > oy){
             loseLifeOrGameOver();
             break;
           }
