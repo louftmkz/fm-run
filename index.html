@@ -69,9 +69,9 @@
      Reihenfolge: top-left, top-right, bottom-right, bottom-left */
   .charbtn{height:80px;border-radius:999px 999px 6px 999px;border:2px solid rgba(255,255,255,0.22);background:transparent;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;display:block;position:relative;padding:0;overflow:hidden}
   .charbtn img{image-rendering:pixelated;image-rendering:crisp-edges;display:block;pointer-events:none;position:absolute}
-  /* Face skaliert auf 75px (1.5x) -- bleibt zentriert ueber die rounded Outline.
+  /* Face skaliert auf 63px (1.25x von 50px Base) -- bleibt zentriert ueber die rounded Outline.
      Icon (BR-Corner, 16x16) sitzt darueber via DOM-Order. */
-  .charbtn .face{width:75px;height:75px;top:50%;left:50%;transform:translate(-50%,-50%)}
+  .charbtn .face{width:63px;height:63px;top:50%;left:50%;transform:translate(-50%,-50%)}
   .charbtn .icon{width:16px;height:16px;bottom:7px;right:7px}
   .charname{height:14px;line-height:14px;text-align:center;font-family:var(--pixel);font-size:9px;color:rgba(255,255,255,0.55);text-shadow:0 1px 0 rgba(0,0,0,0.7);letter-spacing:.5px;transition:color .12s ease,text-shadow .12s ease;overflow:hidden;white-space:nowrap}
   .charbtn.active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--accent)}
