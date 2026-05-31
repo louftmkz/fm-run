@@ -525,26 +525,6 @@
       updateBestDisplay();
     }
   });
-  // Coins werden von ranking.js (Server) synced nach Login + Game-Over.
-  // Event 'fmrun:coinsSynced' updated lokale 'coinsTotal' + 'coinsAtRunStart' + Display.
-  //   - detail.reset = true (Logout): hart auf den Wert zurücksetzen.
-  //   - sonst (Sync nach Game-Over / Login-Merge): nur nach oben shiften, damit
-  //     Pickups eines bereits gestarteten neuen Runs nicht verloren gehen,
-  //     falls die RPC-Response erst nach Reset() ankommt.
-  window.addEventListener('fmrun:coinsSynced', (e) => {
-    const detail = (e && e.detail) || {};
-    const serverCoins = detail.coins | 0;
-    if(detail.reset){
-      coinsTotal = serverCoins;
-      coinsAtRunStart = serverCoins;
-    } else if(serverCoins > coinsTotal){
-      const shift = serverCoins - coinsTotal;
-      coinsTotal = serverCoins;
-      coinsAtRunStart += shift; // Delta des laufenden Runs bleibt erhalten
-    }
-    const el = document.getElementById('coinsValue');
-    if(el) el.textContent = coinsTotal.toLocaleString('de-DE');
-  });
 
   // ---------- Lives / 1up ----------
   // 1ups spawnen nur als Teil des ramp_oneup Patterns auf Ebene 6.
@@ -873,14 +853,14 @@ const LONG_RUN = new SpriteAnim({
   // Statische Sprites laufen als frames:1 (keine Animation sichtbar). Spritesheets
   // sind horizontal angeordnet (alle Frames in einer Reihe).
   const LEVEL_OBSTACLE_SPRITES = [
-    new SpriteAnim({ src: './sprites/obstacle-level-minus-1.png', frames: 8, frameW: 78, frameH: 70, fps: 10, loop: true }), // 0 Underground (8 frames)
-    new SpriteAnim({ src: './sprites/obstacle-level-0.png',       frames: 4, frameW: 34, frameH: 60, fps: 8,  loop: true }), // 1 Gutter & Ghetto (4 frames)
-    null,                                                                                                    // 2 Training Room
-    null,                                                                                                    // 3 Night Club
-    null,                                                                                                    // 4 Battle Ground
-    null,                                                                                                    // 5 TV Studio
-    new SpriteAnim({ src: './sprites/obstacle-level-5.png',       frames: 1, frameW: 65, frameH: 58, fps: 1,  loop: true }), // 6 Theater Stage (static, 1 frame)
-    null                                                                                                     // 7 Spaceship
+    new SpriteAnim({ src: './sprites/obstacle-level-minus-1.png', frames: 8,  frameW: 78, frameH: 70, fps: 10, loop: true }), // 0 Underground (8 frames)
+    new SpriteAnim({ src: './sprites/obstacle-level-0.png',       frames: 4,  frameW: 34, frameH: 60, fps: 8,  loop: true }), // 1 Gutter & Ghetto (4 frames)
+    new SpriteAnim({ src: './sprites/obstacle-level-1.png',       frames: 14, frameW: 50, frameH: 50, fps: 14, loop: true }), // 2 Training Room (14 frames)
+    null,                                                                                                     // 3 Night Club
+    null,                                                                                                     // 4 Battle Ground
+    null,                                                                                                     // 5 TV Studio
+    new SpriteAnim({ src: './sprites/obstacle-level-5.png',       frames: 1,  frameW: 65, frameH: 58, fps: 1,  loop: true }), // 6 Theater Stage (static, 1 frame)
+    null                                                                                                      // 7 Spaceship
   ];
   // Per-Level Ramp-Sprites (Parallelogramm 229x192 native, gerendert auf 220x192).
   // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
@@ -951,7 +931,6 @@ const LONG_RUN = new SpriteAnim({
   const COIN_Y_OFFSET = 30; // Hoehe ueber dem Boden -- auf Spielermitte
   let coinsTotal = 0;
   try { coinsTotal = parseInt(localStorage.getItem('fmrun_coins') || '0', 10) || 0; } catch(e){}
-  let coinsAtRunStart = coinsTotal;
   document.getElementById('coinsValue').textContent = coinsTotal.toLocaleString('de-DE');
 
   // ---------- Charaktere ----------
@@ -1011,9 +990,7 @@ const LONG_RUN = new SpriteAnim({
     oneUps.length = 0;
     popups.length = 0;
     particles.length = 0;
-    // coinsTotal NICHT zuruecksetzen -- bleibt rundenuebergreifend erhalten.
-    // coinsAtRunStart merkt sich den Startwert, damit Game-Over das Delta kennt.
-    coinsAtRunStart = coinsTotal;
+    // coinsTotal NICHT zuruecksetzen -- bleibt rundenuebergreifend erhalten
     // Lives + Eligibility per Run zuruecksetzen
     lives = 0;
     // (nextOneUpAtDistance wird oben gesetzt)
@@ -1332,13 +1309,6 @@ const LONG_RUN = new SpriteAnim({
     hideMuteButton();
     stopAllMusic(); // Game-Over bleibt stumm (kommt spaeter eigener Sound dazu)
     try { window.FMRanking && window.FMRanking.submitScore(m); } catch(e){}
-    try {
-      const coinsDelta = coinsTotal - coinsAtRunStart;
-      coinsAtRunStart = coinsTotal; // Reentry-Schutz: nächster Trigger sieht delta = 0
-      if(coinsDelta > 0 && window.FMRanking && window.FMRanking.submitCoinsDelta){
-        window.FMRanking.submitCoinsDelta(coinsDelta);
-      }
-    } catch(e){}
     puff(player.x + player.w/2, player.y + player.h/2, 24, true);
   }
 
