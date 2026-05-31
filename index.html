@@ -65,9 +65,13 @@
   .charslot{flex:1 1 0;display:flex;flex-direction:column;gap:4px;align-items:stretch;min-width:0;padding:0 4px;cursor:pointer}
   .charslot:first-child{padding-left:0}
   .charslot:last-child{padding-right:0}
-  .charbtn{height:80px;border-radius:6px;border:2px solid rgba(255,255,255,0.22);background:transparent;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;display:block;position:relative;padding:0;overflow:hidden}
+  /* Border-Radius: 3 Ecken rounded-full (999px), unten-rechts (6px) bleibt eckig fuer die Icon-Ecke.
+     Reihenfolge: top-left, top-right, bottom-right, bottom-left */
+  .charbtn{height:80px;border-radius:999px 999px 6px 999px;border:2px solid rgba(255,255,255,0.22);background:transparent;cursor:pointer;transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease;display:block;position:relative;padding:0;overflow:hidden}
   .charbtn img{image-rendering:pixelated;image-rendering:crisp-edges;display:block;pointer-events:none;position:absolute}
-  .charbtn .face{width:50px;height:50px;top:50%;left:50%;transform:translate(-50%,-50%)}
+  /* Face skaliert auf 75px (1.5x) -- bleibt zentriert ueber die rounded Outline.
+     Icon (BR-Corner, 16x16) sitzt darueber via DOM-Order. */
+  .charbtn .face{width:75px;height:75px;top:50%;left:50%;transform:translate(-50%,-50%)}
   .charbtn .icon{width:16px;height:16px;bottom:7px;right:7px}
   .charname{height:14px;line-height:14px;text-align:center;font-family:var(--pixel);font-size:9px;color:rgba(255,255,255,0.55);text-shadow:0 1px 0 rgba(0,0,0,0.7);letter-spacing:.5px;transition:color .12s ease,text-shadow .12s ease;overflow:hidden;white-space:nowrap}
   .charbtn.active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--accent)}
@@ -85,6 +89,10 @@
   .charbtn[data-char="sasch"]{border-color:rgba(255,85,102,0.45)}
   .charbtn[data-char="sasch"].active{border-color:var(--danger);box-shadow:0 0 18px rgba(255,85,102,0.75),inset 0 0 0 1px rgba(255,85,102,0.55)}
   .charbtn[data-char="sasch"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--danger)}
+  /* LonG = der Gap-Jumper -> gelbe Outline (default + active glow), passt zum gelben Boden-Strip */
+  .charbtn[data-char="long"]{border-color:rgba(255,204,51,0.45)}
+  .charbtn[data-char="long"].active{border-color:var(--accent);box-shadow:0 0 18px rgba(255,204,51,0.75),inset 0 0 0 1px rgba(255,204,51,0.55)}
+  .charbtn[data-char="long"].active + .charname{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7),0 0 10px var(--accent)}
   /* Controlrow: IMMER vorhanden mit fixer Hoehe -> Charnav springt nie.
      - Pause-Button centered via flex
      - Mute + Settings absolut links (gleiche Y wie Pause) */
@@ -2154,8 +2162,9 @@ const LONG_RUN = new SpriteAnim({
   // Trick: jeder Frame wird zuerst in einen offscreen-Canvas MIT PADDING gerendert.
   // Dadurch kann der shadow-Gauss frei in die Padding-Zone "bleeden" -- kein Clip am Sprite-Frame.
   const MONEY_GLOW_COLOR    = '#8cf0aa';
-  const RAMP_GLOW_COLOR     = '#7eb6ff';
-  const OBSTACLE_OUTLINE_COLOR = '#ff5566';
+  // Outline-Farben mit Alpha 0.45 -- dezenter Edge-Hint statt voll-saturierte Outline.
+  const RAMP_GLOW_COLOR     = 'rgba(126,182,255,0.45)';
+  const OBSTACLE_OUTLINE_COLOR = 'rgba(255,85,102,0.45)';
   const GLOW_PAD = 32;
   function ensureRampGlowCanvas(img){
     if(!img.complete || !img.naturalWidth) return false;
