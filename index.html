@@ -620,9 +620,15 @@
   audioGame.loop = true; audioGame.volume = musicVolume / 10; audioGame.preload = 'auto';
   let musicMuted = false;
   try { musicMuted = localStorage.getItem('fmrun_muted') === '1'; } catch(e){}
+  // iOS Safari ignoriert <audio>.volume aus JS -- Volume wird nur ueber Hardware-Buttons
+  // gesteuert. Workaround: Audio durch Web-Audio-GainNode routen. musicGainNode wird
+  // lazy in enableMusic() initialisiert (braucht sfxCtx der erst weiter unten existiert).
+  let musicGainNode = null;
   function applyMusicVolume(){
-    audioMenu.volume = musicVolume / 10;
-    audioGame.volume = musicVolume / 10;
+    const v = musicVolume / 10;
+    audioMenu.volume = v;
+    audioGame.volume = v;
+    if(musicGainNode) musicGainNode.gain.value = v;
   }
   let currentTrack = null;
   let musicEnabled = false;
@@ -661,10 +667,35 @@
     try { audioGame.pause(); } catch(e){}
     currentTrack = null;
   }
+  // Routet die HTMLAudioElements (audioMenu + audioGame) durch einen GainNode im
+  // sfxCtx, damit Volume-Aenderungen auch auf iOS Safari greifen (dort wird
+  // audio.volume aus JS ignoriert, GainNode-gain.value aber respektiert).
+  // Muss VOR dem ersten audio.play() aufgerufen werden -- createMediaElementSource()
+  // reroutet das Audio-Output, kann pro Element nur EINMAL aufgerufen werden.
+  function setupMusicWebAudio(){
+    if(musicGainNode) return; // bereits eingerichtet
+    if(typeof sfxCtx === 'undefined' || !sfxCtx) return;
+    try {
+      musicGainNode = sfxCtx.createGain();
+      musicGainNode.gain.value = musicVolume / 10;
+      const menuSrc = sfxCtx.createMediaElementSource(audioMenu);
+      const gameSrc = sfxCtx.createMediaElementSource(audioGame);
+      menuSrc.connect(musicGainNode);
+      gameSrc.connect(musicGainNode);
+      musicGainNode.connect(sfxCtx.destination);
+    } catch(e){
+      // createMediaElementSource kann fehlschlagen wenn schon einmal aufgerufen --
+      // dann bleibt musicGainNode auf seinem letzten Stand (oder null bei Erst-Fail).
+      // applyMusicVolume hat audio.volume Fallback fuer Browser ohne iOS-Quirk.
+    }
+  }
+
   function enableMusic(){
     // iOS verlangt User-Gesten zum Aktivieren von AudioContext + Audio-Playback.
     // resumeSfxCtx ist tolerant wenn sfxCtx noch nicht existiert (else-Pfad in try).
     if(typeof resumeSfxCtx === 'function') resumeSfxCtx();
+    // Lazy-Setup der Music-Web-Audio-Routing (sfxCtx existiert hier garantiert)
+    setupMusicWebAudio();
     if(musicEnabled) return;
     musicEnabled = true;
     if(typeof state !== 'undefined' && (state === STATE.PLAYING || state === STATE.SLIDING || state === STATE.FALLING)){
@@ -1179,16 +1210,34 @@ const LONG_RUN = new SpriteAnim({
     if(sfxSliderEl)   sfxSliderEl.value = String(sfxVolume);
     if(sfxValueEl)    sfxValueEl.textContent = String(sfxVolume);
   }
-  musicSliderEl?.addEventListener('input', (e) => {
+  function onMusicSliderChange(e){
     musicVolume = parseInt(e.target.value, 10) || 0;
     if(musicValueEl) musicValueEl.textContent = String(musicVolume);
     applyMusicVolume();
     try { localStorage.setItem('fmrun_music_vol', String(musicVolume)); } catch(_){}
-  });
-  sfxSliderEl?.addEventListener('input', (e) => {
+  }
+  function onSfxSliderChange(e){
     sfxVolume = parseInt(e.target.value, 10) || 0;
     if(sfxValueEl) sfxValueEl.textContent = String(sfxVolume);
     try { localStorage.setItem('fmrun_sfx_vol', String(sfxVolume)); } catch(_){}
+  }
+  // input fires continuously during drag, change fires on release -- beide registrieren
+  // damit auch Browser ohne kontinuierliches input-Event live updaten koennen.
+  musicSliderEl?.addEventListener('input',  onMusicSliderChange);
+  musicSliderEl?.addEventListener('change', onMusicSliderChange);
+  sfxSliderEl?.addEventListener('input',  onSfxSliderChange);
+  sfxSliderEl?.addEventListener('change', onSfxSliderChange);
+
+  // Beim Antippen der Slider: AudioContext wecken + (bei Musik) Music starten falls noch nicht.
+  musicSliderEl?.addEventListener('pointerdown', () => { enableMusic(); });
+  // SFX-Slider Preview: Money-Sound spielt einmal bei pointerdown und einmal bei pointerup,
+  // jeweils mit der CURRENT sfxVolume. Erlaubt direktes Hoer-Feedback fuer Lautstaerken-Test.
+  sfxSliderEl?.addEventListener('pointerdown', () => {
+    if(typeof resumeSfxCtx === 'function') resumeSfxCtx();
+    playSfx('money');
+  });
+  sfxSliderEl?.addEventListener('pointerup', () => {
+    playSfx('money');
   });
   // Legacy-Stub: toggleMute() rief frueher updateModalSoundToggle. Slider-UI ist
   // unabhaengig vom Mute-Toggle, daher hier nur ein No-Op (haelt Aufrufer stabil).
