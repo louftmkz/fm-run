@@ -255,7 +255,7 @@
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   async function openBoard(){
-    if(!session || !profile){ showModal('auth-signup'); toast('Erst anmelden'); return; }
+    if(!session || !profile){ showModal('auth-login'); toast('Erst anmelden'); return; }
     showModal('board');
     setTab(boardTab);
   }
@@ -316,7 +316,7 @@
 
   // ---------- Freunde-Verwaltung ----------
   async function openFriends(){
-    if(!session || !profile){ showModal('auth-signup'); return; }
+    if(!session || !profile){ showModal('auth-login'); return; }
     showView('friends');
     $('friendErr').textContent = '';
     loadRequestsAndFriends();
@@ -457,7 +457,7 @@
     const board = $('btnBoard'); if(board) board.onclick = () => { if(!cfgOk()){ toast('Ranking nicht verfügbar'); return; } openBoard(); };
     const auth = $('btnAuth'); if(auth) auth.onclick = () => {
       if(!cfgOk()){ toast('Login nicht verfügbar'); return; }
-      showModal('auth-signup');
+      showModal('auth-login');
     };
     const out = $('btnSignOut'); if(out) out.onclick = signOut;
     // Auth-Buttons (neue Handle+Password Auth)
