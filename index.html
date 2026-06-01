@@ -983,6 +983,10 @@ const LONG_RUN = new SpriteAnim({
 
   function setActiveCharacter(name){
     if(!CHARACTERS[name] || activeCharacter === name) return;
+    // Switch nur erlaubt waehrend aktivem Gameplay -- nicht im Game-Over und nicht waehrend Pause.
+    // Verhindert versehentliches Char-Tappen im Dead-Screen / Pause-Overlay.
+    if(state === STATE.OVER) return;
+    if(typeof paused !== 'undefined' && paused) return;
     activeCharacter = name;
     document.querySelectorAll('.charbtn').forEach(b => {
       b.classList.toggle('active', b.dataset.char === name);
