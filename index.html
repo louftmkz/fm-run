@@ -142,6 +142,9 @@
   }
   .lives.shake{animation:lifeShake .4s ease-in-out}
   .center{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:0 24px}
+  /* Start-Screen Backdrop -- dunkle, semitransparente Flaeche fuer Lesbarkeit ueber dem Spiel-BG.
+     Wickelt nur den Start-Content ein, NICHT Player (canvas) oder Charnav (separater Container). */
+  .startPanel{background:rgba(0,0,0,0.55);border-radius:14px;padding:24px 28px;display:flex;flex-direction:column;align-items:center;gap:0;max-width:100%}
   .title{font-family:var(--pixel);font-size:36px;letter-spacing:2px;line-height:1.15;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 14px}
   .sub{color:#d8def5;margin:0 0 28px;font-size:9px;line-height:1.6;text-shadow:0 2px 0 rgba(0,0,0,0.75),0 0 8px rgba(0,0,0,0.5)}
   .btn{pointer-events:auto;border:0;border-radius:8px;padding:14px 22px;font-family:var(--pixel);font-size:12px;letter-spacing:1px;background:var(--accent);color:#1a1a1a;cursor:pointer;box-shadow:0 8px 24px rgba(255,204,51,.25);transition:transform .08s ease}
@@ -152,7 +155,7 @@
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-dim);font-size:8px;margin-left:8px;vertical-align:middle}
   /* Settings-Modal (Sound an/aus). Eigenstaendig, parallel zum Ranking-Modal (fmModal). */
   .modal{position:absolute;inset:0;background:rgba(7,11,26,0.92);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:auto}
-  .modalCard{background:var(--bg-1);border:2px solid rgba(255,255,255,0.18);border-radius:8px;padding:22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:240px;max-width:340px;width:100%}
+  .modalCard{position:relative;background:var(--bg-1);border:2px solid rgba(255,255,255,0.18);border-radius:8px;padding:22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:240px;max-width:340px;width:100%}
   .modalTitle{font-family:var(--pixel);font-size:14px;letter-spacing:1px;color:var(--accent);text-align:center;margin:0;text-shadow:0 2px 0 rgba(0,0,0,0.7)}
   .settingsRow{display:flex;justify-content:space-between;align-items:center;gap:14px}
   .settingsLabel{font-family:var(--pixel);font-size:10px;color:var(--ink);text-shadow:0 1px 0 rgba(0,0,0,0.6)}
@@ -175,9 +178,10 @@
   .linkbtn{pointer-events:auto;background:none;border:0;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline;padding:0}
   .fmmodal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72);padding:18px;pointer-events:auto}
   .fmmodal-panel{position:relative;width:100%;max-width:380px;max-height:88vh;overflow-y:auto;background:var(--bg-0,#15151b);border:2px solid var(--accent);border-radius:14px;padding:24px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-  /* X-Close: vertikal zentriert mit H2 erste-Zeile (panel padding 24px + halbe h2 ~7.5).
-     transform:translateY(-50%) macht das mathematisch exakt unabhaengig von font-size. */
-  .fmmodal-close{position:absolute;top:32px;right:20px;background:none;border:0;color:var(--ink-dim);font-size:18px;line-height:1;cursor:pointer;padding:4px 6px;transform:translateY(-50%)}
+  /* X-Close (universal): "X" Letter in Pixel-Font, vertikal zentriert mit H2 erste-Zeile.
+     Gilt fuer fmmodal (Auth/Ranking) UND modalCard (Settings) -- gleiche Klasse. */
+  .fmmodal-close,.modal-close{position:absolute;top:32px;right:18px;background:none;border:0;color:var(--ink-dim);font-family:var(--pixel);font-size:12px;line-height:1;letter-spacing:0;cursor:pointer;padding:6px 8px;transform:translateY(-50%);pointer-events:auto}
+  .fmmodal-close:hover,.modal-close:hover{color:var(--ink)}
   .fmview h2{font-family:'Press Start 2P',system-ui,sans-serif;font-size:15px;color:var(--accent);margin:0 0 14px;letter-spacing:1px}
   /* Sub-Headings (Anfragen, Gesendet, Deine Freunde) in Accent-Yellow damit sie sich
      von den Listen-Eintraegen darunter abheben. */
@@ -244,9 +248,10 @@
       </div>
 
       <div class="center" id="screenStart">
+        <div class="startPanel">
         <h1 class="title">FM RUN</h1>
         <p class="sub">Tippe einen Helden<br>unten zum Wechseln</p>
-        <button class="btn" id="btnStart">Spielen</button>
+        <button class="btn" id="btnStart">START</button>
         <button class="btn btn-secondary" id="btnBoard" type="button">🏆 Rangliste</button>
         <div class="account" id="accountChip">
           <span id="accountStatus">Nicht angemeldet</span>
@@ -254,6 +259,7 @@
           <button class="linkbtn hidden" id="btnSignOut" type="button">Abmelden</button>
         </div>
         <div class="hint">v0.2 prototype</div>
+        </div>
       </div>
 
       <div class="center hidden gameover" id="screenOver">
@@ -273,6 +279,7 @@
 
       <div class="modal hidden" id="screenSettings">
         <div class="modalCard">
+          <button class="modal-close" id="btnSettingsClose" type="button" aria-label="Schließen">X</button>
           <h2 class="modalTitle">EINSTELLUNGEN</h2>
           <div class="settingsRow">
             <span class="settingsLabel lbl-slider">Musik</span>
@@ -284,7 +291,6 @@
             <input type="range" min="0" max="10" step="1" class="settingsSlider" id="sfxSlider" value="7">
             <span class="settingsValue" id="sfxValue">7</span>
           </div>
-          <button class="btn btnSmall" id="btnSettingsClose">OK</button>
         </div>
       </div>
     </div>
@@ -338,7 +344,7 @@
 
 <div class="fmmodal hidden" id="fmModal">
   <div class="fmmodal-panel">
-    <button class="fmmodal-close" id="fmModalClose" type="button" aria-label="Schließen">✕</button>
+    <button class="fmmodal-close" id="fmModalClose" type="button" aria-label="Schließen">X</button>
 
     <!-- View: Registrierung -->
     <div class="fmview" data-view="auth-signup">
@@ -1198,17 +1204,20 @@ const LONG_RUN = new SpriteAnim({
       tryStart();
     }
   });
-  // Tap auf Spielflaeche -> nur Start/Restart (im PLAYING tut Tap nichts)
+  // Tap auf Spielflaeche -> Musik aktivieren (Autoplay-Restriction-Workaround) UND
+  // (nur im Game-Over) Tap-to-Restart. Im Start-Screen muss explizit der START-Button
+  // gedrueckt werden -- verhindert versehentliches Starten beim Hero-Tap-Versuch.
   function onPointer(e){
-    enableMusic();   // erster Tap aktiviert Musik (Autoplay-Restriction-Workaround)
+    enableMusic();
+    if(state !== STATE.OVER) return; // Start-Screen: nur Button, kein Tap-to-Start
     if(e.target.closest('.btn')) return;
-    if(e.target.closest('.charslot')) return; // ganzer Char-Slot (Button + Name + Padding) -> eigener Handler
-    if(e.target.closest('.ctrlbtn')) return;  // Pause/Play-Button -> eigener Handler
-    if(e.target.closest('.musicBtn')) return; // Mute-Toggle -> eigener Handler
-    if(e.target.closest('.settingsGear')) return; // Settings-Zahnrad -> eigener Handler
-    if(e.target.closest('.modal')) return;    // Settings-Modal -> kein Start-Trigger
-    if(e.target.closest('#fmModal')) return; // Ranking-Modal handhabt sich selbst (inkl. Eingabefelder)
-    if(e.target.closest('.account')) return; // Account-Chip (Anmelden/Abmelden) startet nicht das Spiel
+    if(e.target.closest('.charslot')) return;
+    if(e.target.closest('.ctrlbtn')) return;
+    if(e.target.closest('.musicBtn')) return;
+    if(e.target.closest('.settingsGear')) return;
+    if(e.target.closest('.modal')) return;
+    if(e.target.closest('#fmModal')) return;
+    if(e.target.closest('.account')) return;
     e.preventDefault();
     tryStart();
   }
