@@ -179,7 +179,9 @@
      transform:translateY(-50%) macht das mathematisch exakt unabhaengig von font-size. */
   .fmmodal-close{position:absolute;top:32px;right:20px;background:none;border:0;color:var(--ink-dim);font-size:18px;line-height:1;cursor:pointer;padding:4px 6px;transform:translateY(-50%)}
   .fmview h2{font-family:'Press Start 2P',system-ui,sans-serif;font-size:15px;color:var(--accent);margin:0 0 14px;letter-spacing:1px}
-  .fmsub{font-family:'Press Start 2P',system-ui,sans-serif;font-size:10px;color:var(--ink-dim);margin:18px 0 8px;letter-spacing:1px}
+  /* Sub-Headings (Anfragen, Gesendet, Deine Freunde) in Accent-Yellow damit sie sich
+     von den Listen-Eintraegen darunter abheben. */
+  .fmsub{font-family:'Press Start 2P',system-ui,sans-serif;font-size:10px;color:var(--accent);margin:18px 0 8px;letter-spacing:1px;text-shadow:0 1px 0 rgba(0,0,0,0.6)}
   /* Description-Text klein im Pixel-Font (Groesse wie .charname) */
   .fmnote{color:var(--ink-dim);font-family:var(--pixel);font-size:9px;line-height:1.6;letter-spacing:.5px;margin:0 0 14px}
   /* Inputs in Pixel-Font fuer Konsistenz mit Game-Style (placeholder + getippter Text). */
@@ -198,16 +200,23 @@
   .fmtab{flex:1;pointer-events:auto;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:transparent;color:var(--ink-dim);font:inherit;font-weight:700;cursor:pointer}
   .fmtab.active{border-color:var(--accent);color:var(--accent);background:rgba(255,204,51,.08)}
   .fmlist{display:flex;flex-direction:column;gap:6px;min-height:24px}
-  .fmlist-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,.05);font-size:14px}
+  /* List-Rows in Pixel-Font, klein (description-text-size). Gilt fuer Rangliste UND Friends-Listen. */
+  .fmlist-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,.05);font-family:var(--pixel);font-size:9px;letter-spacing:.5px;line-height:1.4}
   .fmlist-row.me{background:rgba(255,204,51,.14);border:1px solid rgba(255,204,51,.4)}
   .fmlist-row .rank{width:34px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
   .fmlist-row .who{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fmlist-row .dist{font-variant-numeric:tabular-nums;color:var(--accent)}
   .fmlist-row .act{display:flex;gap:6px}
-  .fmlist-empty{color:var(--ink-dim);font-size:13px;padding:8px 2px}
-  .fmminibtn{pointer-events:auto;border:0;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
+  .fmlist-empty{color:var(--ink-dim);font-family:var(--pixel);font-size:9px;letter-spacing:.5px;line-height:1.5;padding:8px 2px}
+  .fmminibtn{pointer-events:auto;border:0;border-radius:7px;padding:6px 10px;font-family:var(--pixel);font-size:9px;letter-spacing:.5px;cursor:pointer}
   .fmminibtn.ok{background:var(--accent);color:#1a1a1a}
   .fmminibtn.no{background:rgba(255,255,255,.1);color:var(--ink-dim)}
+  /* Destructive Icon-Only Button -- rote Outline, Icon in Danger-Color. */
+  .fmminibtn.danger{background:rgba(255,85,102,0.12);color:var(--danger);border:1px solid rgba(255,85,102,0.4);padding:7px;display:inline-flex;align-items:center;justify-content:center}
+  .fmminibtn.danger:hover{background:rgba(255,85,102,0.22)}
+  .fmminibtn.danger svg{display:block}
+  /* Mehr Abstand zwischen "Deine Freunde"-Liste und "Zurueck zur Rangliste"-Linkbutton */
+  #btnBackBoard{margin-top:24px}
   .fmtoast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;border:1px solid var(--accent);opacity:0;transition:opacity .2s;pointer-events:none}
   .fmtoast.show{opacity:1}
 </style>

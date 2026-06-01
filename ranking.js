@@ -410,7 +410,7 @@
             const other = f.requester_id === session.userId ? f.addressee : f.requester;
             return '<div class="fmlist-row"><span class="who">@'
               + escapeHtml(other ? other.handle : '?') + '</span>'
-              + '<span class="act"><button class="fmminibtn no" data-remove="' + f.id + '">Entfernen</button></span></div>';
+              + '<span class="act"><button class="fmminibtn danger" data-remove="' + f.id + '" aria-label="Entfernen"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></span></div>';
           }).join('')
         : '<div class="fmlist-empty">Noch keine Freunde.</div>';
     } catch(e){
