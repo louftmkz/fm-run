@@ -156,7 +156,8 @@
   /* Settings-Modal (Sound an/aus). Eigenstaendig, parallel zum Ranking-Modal (fmModal). */
   .modal{position:absolute;inset:0;background:rgba(7,11,26,0.92);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:auto}
   .modalCard{position:relative;background:var(--bg-1);border:2px solid rgba(255,255,255,0.18);border-radius:8px;padding:22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:240px;max-width:340px;width:100%}
-  .modalTitle{font-family:var(--pixel);font-size:14px;letter-spacing:1px;color:var(--accent);text-align:center;margin:0;text-shadow:0 2px 0 rgba(0,0,0,0.7)}
+  /* Links-buendig fuer Konsistenz mit Auth/Ranking-Modal H2 */
+  .modalTitle{font-family:var(--pixel);font-size:14px;letter-spacing:1px;color:var(--accent);text-align:left;margin:0;text-shadow:0 2px 0 rgba(0,0,0,0.7)}
   .settingsRow{display:flex;justify-content:space-between;align-items:center;gap:14px}
   .settingsLabel{font-family:var(--pixel);font-size:10px;color:var(--ink);text-shadow:0 1px 0 rgba(0,0,0,0.6)}
   .toggleBtn{font-family:var(--pixel);font-size:10px;padding:8px 14px;border-radius:6px;background:var(--accent);color:#1a1a1a;border:0;cursor:pointer;letter-spacing:1px;min-width:60px;transition:transform .08s ease}
@@ -279,7 +280,9 @@
 
       <div class="modal hidden" id="screenSettings">
         <div class="modalCard">
-          <button class="modal-close" id="btnSettingsClose" type="button" aria-label="Schließen">X</button>
+          <!-- X = Abbrechen (spaeter: revert staged changes), OK = Bestaetigen (spaeter: commit staged). -->
+          <!-- Aktuell sind alle Settings live-applied -- beide Buttons schliessen das Modal. -->
+          <button class="modal-close" id="btnSettingsCancel" type="button" aria-label="Abbrechen">X</button>
           <h2 class="modalTitle">EINSTELLUNGEN</h2>
           <div class="settingsRow">
             <span class="settingsLabel lbl-slider">Musik</span>
@@ -291,6 +294,7 @@
             <input type="range" min="0" max="10" step="1" class="settingsSlider" id="sfxSlider" value="7">
             <span class="settingsValue" id="sfxValue">7</span>
           </div>
+          <button class="btn btnSmall" id="btnSettingsOk" type="button">OK</button>
         </div>
       </div>
     </div>
@@ -1232,7 +1236,8 @@ const LONG_RUN = new SpriteAnim({
   // ---------- Settings-Modal (Musik + Sound Volume-Slider) ----------
   const screenSettings = document.getElementById('screenSettings');
   const btnSettings = document.getElementById('btnSettings');
-  const btnSettingsClose = document.getElementById('btnSettingsClose');
+  const btnSettingsCancel = document.getElementById('btnSettingsCancel');
+  const btnSettingsOk     = document.getElementById('btnSettingsOk');
   const musicSliderEl = document.getElementById('musicSlider');
   const musicValueEl  = document.getElementById('musicValue');
   const sfxSliderEl   = document.getElementById('sfxSlider');
@@ -1284,7 +1289,10 @@ const LONG_RUN = new SpriteAnim({
     screenSettings?.classList.add('hidden');
   }
   btnSettings?.addEventListener('click', (e) => { e.stopPropagation(); openSettings(); });
-  btnSettingsClose?.addEventListener('click', (e) => { e.stopPropagation(); closeSettings(); });
+  // X (Cancel) und OK (Confirm) schliessen aktuell beide das Modal -- Settings sind live-applied.
+  // Spaeter, wenn weitere Settings staged werden: OK committed, X revertet.
+  btnSettingsCancel?.addEventListener('click', (e) => { e.stopPropagation(); closeSettings(); });
+  btnSettingsOk?.addEventListener('click',     (e) => { e.stopPropagation(); closeSettings(); });
   // Initial-Sync der Slider-UI (zeigt persistierten Wert wenn Modal noch nicht geoeffnet)
   syncSliderUI();
 
