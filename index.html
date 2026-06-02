@@ -1862,9 +1862,12 @@ const LONG_RUN = new SpriteAnim({
   // Sidescroll + Score laufen in PLAYING, SLIDING und FALLING -- so bleibt der Spielfluss erhalten
   function tickScrollingWorld(dt){
     timeAlive += dt;
-    // Etagen-Basisspeed + Distanz-Rampe (2% pro 100m, gecappt bei +75% nach ~3750m)
+    // Etagen-Basisspeed + Distanz-Rampe: +100% (= 2x Speed) gecappt bei 2000m.
+    // Vorher: +75% Cap bei ~3750m (zu flach -- PB-Versuche brauchten 8-10 Min konzentrierte Konzentration).
+    // Jetzt: bei 2000m bereits volle Doppel-Speed, Skill-Test kickt frueher rein,
+    // Runs enden organischer durch Difficulty-Wand statt Konzentrationsabbruch.
     const baseSpeed = SPEEDS[Math.min(currentLevel, SPEEDS.length - 1)];
-    const distanceMultiplier = 1 + Math.min(0.75, distance / 5000);
+    const distanceMultiplier = 1 + Math.min(1.0, distance / 2000);
     const targetSpeed = baseSpeed * distanceMultiplier;
     speed += (targetSpeed - speed) * Math.min(1, dt * SPEED_LERP);
     const distanceThisFrameM = (speed * dt) / PIXELS_PER_METER;
