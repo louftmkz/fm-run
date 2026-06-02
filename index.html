@@ -259,6 +259,7 @@
           <button class="linkbtn" id="btnAuth" type="button">Anmelden</button>
           <button class="linkbtn hidden" id="btnSignOut" type="button">Abmelden</button>
         </div>
+        <div class="hint" id="startEgg"></div>
         </div>
       </div>
 
@@ -1381,12 +1382,42 @@ const LONG_RUN = new SpriteAnim({
     playGameMusic();
   }
   // Zurueck zum Start-Screen (Home-Buttons in Pause + Game-Over)
+  // Start-Screen Easter-Eggs: Inside-Quotes + Insider die unten im Start-Panel rotieren.
+  // Sind absichtlich kontextfrei -- wer den Joke kennt, weiss; wer nicht, find's seltsam-funny.
+  const START_EGGS = [
+    'I want Meatball!',
+    'Whatwhatwhatwhat-what?',
+    'Nice Tits!',
+    'Dresscode',
+    'Heeeyy naked Maaaan',
+    "It's Britney bitch!",
+    'Dit... isset mir nich wert.',
+    'wie rum schlaft man hier?',
+    'hast du gestellt Wecker?',
+    'k750affe',
+    'LonGtranet',
+    'LonG geht duschen',
+    'LonG ruht',
+    'Benji in da House',
+    'Einfach total... gut',
+    'Einscannen, ausdrucken, fertig.',
+    'Ich bin kein Tourist',
+    "Na dann, gehen wir's an!"
+  ];
+  function pickStartEgg(){
+    const el = document.getElementById('startEgg');
+    if(!el) return;
+    el.textContent = START_EGGS[Math.floor(Math.random() * START_EGGS.length)];
+  }
+  pickStartEgg(); // initial on page load
+
   function returnToStart(){
     state = STATE.READY;
     paused = false;
     document.getElementById('screenOver').classList.add('hidden');
     document.getElementById('screenPause').classList.add('hidden');
     document.getElementById('screenStart').classList.remove('hidden');
+    pickStartEgg(); // neuer Egg-Quote bei jeder Rueckkehr zum Startscreen
     reset();
     resetPauseButtonUI();
     hidePauseButton();
@@ -1417,19 +1448,19 @@ const LONG_RUN = new SpriteAnim({
       gameOver();
     }
   }
-  // Tipps die zufaellig nach jedem Tod angezeigt werden. Halten den Loading-/Restart-Moment
-  // informativ statt leer. Eine Zeile, kurz, gespielt-nicht-erklaert.
+  // Tipps die zufaellig nach jedem Tod angezeigt werden. Subtiler/spaßiger formuliert
+  // als direkte Mechanik-Erklaerungen -- soll Lust aufs Weiterspielen + Entdecken machen.
   const RESTART_TIPS = [
-    'Alle 1000m winkt ein Extra-Leben',
-    'Höhere Etagen → wertvollere Schätze',
-    'Höher = schneller laufen',
-    'Underground hat alle Schatz-Typen im Mix',
-    'Alle 200m zwingt dich ein Gap oder eine Rampe',
-    'Shizzo sammelt Schätze UND Extra-Leben',
-    'Sasch zerstört Hindernisse statt zu sterben',
-    'Lou klettert Treppen nach oben',
-    'LonG springt automatisch über Lücken',
-    'Wechsle Helden mit den Buttons unten'
+    'Alle 1000m winkt eine schöne Überraschung...',
+    'Besser bezahlte Jobs? Steig höher!',
+    'Weiter oben wird die Luft echt dünn!',
+    'Ganz unten gibt es nichts zu sehen!',
+    'Wer sich zu lange ausruht, fällt.',
+    'Forsche nicht zu tief!',
+    '"Sasch kaputt will machen"',
+    '"Erfolg hat viele kleine STUFEN" -Lou',
+    'LonG fällt... maximal in den Dive.',
+    'Shizzo lässt sich nix entgehen!'
   ];
   function gameOver(){
     state = STATE.OVER;
@@ -1441,11 +1472,11 @@ const LONG_RUN = new SpriteAnim({
     }
     updateBestDisplay();
     document.getElementById('overText').textContent = m + ' m   ' + (wasBest ? 'new best!' : 'Best: ' + best + ' m');
-    // Zufaelliger Tipp -- ersetzt das frueher haengende "Tap zum Neustart" Hint
+    // Zufaelliger Tipp -- ersetzt das frueher haengende "Tap zum Neustart" Hint.
+    // Kein Prefix-Emoji -- die Texte sind absichtlich subtil/quote-haft formuliert.
     const tipEl = document.getElementById('overTip');
     if(tipEl){
-      const tip = RESTART_TIPS[Math.floor(Math.random() * RESTART_TIPS.length)];
-      tipEl.textContent = '💡 ' + tip;
+      tipEl.textContent = RESTART_TIPS[Math.floor(Math.random() * RESTART_TIPS.length)];
     }
     document.getElementById('screenOver').classList.remove('hidden');
     // Pause + Mute im Game-Over verstecken (Settings ist sowieso schon hidden)
