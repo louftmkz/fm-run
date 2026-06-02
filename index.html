@@ -459,12 +459,11 @@
   // Hoehere Etage = schnellere Welt -> mehr Risk/Reward
   const SPEEDS = [260, 235, 180, 195, 210, 235, 260, 300]; // Code Level 0..7 = Ebene -1, 0, 1, 2, 3, 4, 5, 6
   const SPEED_LERP = 3;      // 1/SPEED_LERP = ~Sekunden bis neue Etagen-Speed erreicht
-  // PIXELS_PER_METER: bewusste Score-Inflation (Hebel 3). 30 -> 18 = Counter tickt 1.67x
-  // schneller bei gleichem physischem Gameplay. Folge: gleiche Meter-Marken werden in
-  // kuerzerer Zeit erreicht -- shorter runs, same number on the scoreboard.
-  // KEINE Migration alter PB-Werte (lokal noch Server) -- alte Records bleiben sichtbar,
-  // werden in der neuen Skala leichter zu schlagen sein (= gewuenscht).
-  const PIXELS_PER_METER = 18;
+  // PIXELS_PER_METER: kalibriert als exakter Ausgleich fuer die 1.5x Sprite-Skalierung
+  // aus Step 27 (Sprites 128 -> 192). 30 / 1.5 = 20 -- Counter tickt jetzt genauso
+  // schnell wie er es vor der Sprite-Vergroesserung getan haette (gefuehlte m/s).
+  // KEINE Migration alter PB-Werte (lokal noch Server) -- alte Records bleiben sichtbar.
+  const PIXELS_PER_METER = 20;
 
   // Spawn-Raten in "Events pro 100m" pro Etage (Index = Level 0..MAX_LEVEL)
   // Levels 1-4 nutzen identische Werte (= Level 4 als Baseline = "vorletzte Ebene"-Feel).
