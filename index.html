@@ -1598,9 +1598,11 @@ const LONG_RUN = new SpriteAnim({
     if(anim){
       const sw = Math.round(anim.frameW * 1.5);
       const sh = Math.round(anim.frameH * 1.5);
-      // Underground (lvl 0): Sprite ist sehr breit (117px). Hitbox auf die Haelfte
-      // reduzieren -- visuell unveraendert, aber Player kann am Rand vorbei.
-      const hitInsetX = (lvl === 0) ? Math.round(sw / 4) : 0;
+      // Levels mit visuell breitem Obstacle-Kern: Hitbox auf die Haelfte reduzieren --
+      // visuell unveraendert, aber Player kann am Rand vorbei. Aktuell: Underground (0)
+      // und Training Room (2). Inset-Formel: sw/4 pro Seite = halbe effektive Breite.
+      const halfHitbox = (lvl === 0 || lvl === 2);
+      const hitInsetX = halfHitbox ? Math.round(sw / 4) : 0;
       const r = Math.random();
       if(r < 0.80){
         obstacles.push({x, w: sw, h: sh, type:'low', level: lvl, _spriteSized: true, hitInsetX});
