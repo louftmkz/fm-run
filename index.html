@@ -142,9 +142,10 @@
   }
   .lives.shake{animation:lifeShake .4s ease-in-out}
   .center{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:0 24px}
-  /* Start-Screen Backdrop -- dunkle, semitransparente Flaeche fuer Lesbarkeit ueber dem Spiel-BG.
-     Wickelt nur den Start-Content ein, NICHT Player (canvas) oder Charnav (separater Container). */
-  .startPanel{background:rgba(0,0,0,0.55);border-radius:14px;padding:24px 28px;display:flex;flex-direction:column;align-items:center;gap:0;max-width:100%}
+  /* Screen-Panel Backdrop -- dunkle, semitransparente Flaeche fuer Lesbarkeit ueber dem Spiel-BG.
+     Wickelt nur den Screen-Content ein (Start, Pause, Game-Over), NICHT Player (canvas)
+     oder Charnav (separater Container). */
+  .screenPanel{background:rgba(0,0,0,0.55);border-radius:14px;padding:24px 28px;display:flex;flex-direction:column;align-items:center;gap:0;max-width:100%}
   .title{font-family:var(--pixel);font-size:36px;letter-spacing:2px;line-height:1.15;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 14px}
   .sub{color:#d8def5;margin:0 0 28px;font-size:9px;line-height:1.6;text-shadow:0 2px 0 rgba(0,0,0,0.75),0 0 8px rgba(0,0,0,0.5)}
   .btn{pointer-events:auto;border:0;border-radius:8px;padding:14px 22px;font-family:var(--pixel);font-size:12px;letter-spacing:1px;background:var(--accent);color:#1a1a1a;cursor:pointer;box-shadow:0 8px 24px rgba(255,204,51,.25);transition:transform .08s ease}
@@ -171,8 +172,7 @@
   .settingsValue{font-family:var(--pixel);font-size:10px;min-width:22px;text-align:right;color:var(--accent);text-shadow:0 1px 0 rgba(0,0,0,0.6)}
   .settingsLabel.lbl-slider{min-width:54px}
   .btnSmall{padding:10px 18px;font-size:10px}
-  /* Home-Button in Pause/GameOver: transparent + outline statt voller Accent-Fill */
-  .btnHome{background:rgba(255,255,255,0.10) !important;color:var(--ink) !important;box-shadow:none !important;border:2px solid rgba(255,255,255,0.22) !important;margin-top:6px}
+  /* (frueher .btnHome -- jetzt teilen Pause/Over Home-Button den .btn-secondary Style mit dem Startscreen.) */
   /* ===== Ranking UI ===== */
   .btn-secondary{background:transparent;color:var(--accent);box-shadow:none;border:2px solid var(--accent);margin-top:12px}
   .account{margin-top:18px;font-size:13px;color:var(--ink-dim);display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
@@ -249,7 +249,7 @@
       </div>
 
       <div class="center" id="screenStart">
-        <div class="startPanel">
+        <div class="screenPanel">
         <h1 class="title">FM RUN</h1>
         <p class="sub">Tippe einen Helden<br>unten zum Wechseln</p>
         <button class="btn" id="btnStart">START</button>
@@ -259,23 +259,26 @@
           <button class="linkbtn" id="btnAuth" type="button">Anmelden</button>
           <button class="linkbtn hidden" id="btnSignOut" type="button">Abmelden</button>
         </div>
-        <div class="hint">v0.2 prototype</div>
         </div>
       </div>
 
       <div class="center hidden gameover" id="screenOver">
+        <div class="screenPanel">
         <h1 class="title">GAME<br>OVER</h1>
         <p class="sub" id="overText">0 m</p>
         <div class="hint" id="overRank"></div>
         <button class="btn" id="btnRestart">Nochmal</button>
-        <button class="btn btnHome" id="btnOverHome">Home</button>
-        <div class="hint">Tap zum<br>Neustart</div>
+        <button class="btn btn-secondary" id="btnOverHome">Home</button>
+        <div class="hint" id="overTip"></div>
+        </div>
       </div>
 
       <div class="center hidden" id="screenPause">
+        <div class="screenPanel">
         <h1 class="title">PAUSE</h1>
-        <button class="btn btnHome" id="btnPauseHome">Home</button>
+        <button class="btn btn-secondary" id="btnPauseHome">Home</button>
         <div class="hint">Play-Button<br>zum Fortsetzen</div>
+        </div>
       </div>
 
       <div class="modal hidden" id="screenSettings">
@@ -1212,22 +1215,11 @@ const LONG_RUN = new SpriteAnim({
       tryStart();
     }
   });
-  // Tap auf Spielflaeche -> Musik aktivieren (Autoplay-Restriction-Workaround) UND
-  // (nur im Game-Over) Tap-to-Restart. Im Start-Screen muss explizit der START-Button
-  // gedrueckt werden -- verhindert versehentliches Starten beim Hero-Tap-Versuch.
+  // Tap auf Spielflaeche -> nur Musik aktivieren (Autoplay-Restriction-Workaround).
+  // KEIN Tap-to-Start/Restart mehr -- Start und Restart laufen ausschliesslich
+  // ueber explizite Buttons (START, Nochmal). Verhindert versehentliches Triggern.
   function onPointer(e){
     enableMusic();
-    if(state !== STATE.OVER) return; // Start-Screen: nur Button, kein Tap-to-Start
-    if(e.target.closest('.btn')) return;
-    if(e.target.closest('.charslot')) return;
-    if(e.target.closest('.ctrlbtn')) return;
-    if(e.target.closest('.musicBtn')) return;
-    if(e.target.closest('.settingsGear')) return;
-    if(e.target.closest('.modal')) return;
-    if(e.target.closest('#fmModal')) return;
-    if(e.target.closest('.account')) return;
-    e.preventDefault();
-    tryStart();
   }
   window.addEventListener('pointerdown', onPointer, {passive:false});
 
@@ -1425,6 +1417,20 @@ const LONG_RUN = new SpriteAnim({
       gameOver();
     }
   }
+  // Tipps die zufaellig nach jedem Tod angezeigt werden. Halten den Loading-/Restart-Moment
+  // informativ statt leer. Eine Zeile, kurz, gespielt-nicht-erklaert.
+  const RESTART_TIPS = [
+    'Alle 1000m winkt ein Extra-Leben',
+    'Höhere Etagen → wertvollere Schätze',
+    'Höher = schneller laufen',
+    'Underground hat alle Schatz-Typen im Mix',
+    'Alle 200m zwingt dich ein Gap oder eine Rampe',
+    'Shizzo sammelt Schätze UND Extra-Leben',
+    'Sasch zerstört Hindernisse statt zu sterben',
+    'Lou klettert Treppen nach oben',
+    'LonG springt automatisch über Lücken',
+    'Wechsle Helden mit den Buttons unten'
+  ];
   function gameOver(){
     state = STATE.OVER;
     const m = Math.floor(distance);
@@ -1435,6 +1441,12 @@ const LONG_RUN = new SpriteAnim({
     }
     updateBestDisplay();
     document.getElementById('overText').textContent = m + ' m   ' + (wasBest ? 'new best!' : 'Best: ' + best + ' m');
+    // Zufaelliger Tipp -- ersetzt das frueher haengende "Tap zum Neustart" Hint
+    const tipEl = document.getElementById('overTip');
+    if(tipEl){
+      const tip = RESTART_TIPS[Math.floor(Math.random() * RESTART_TIPS.length)];
+      tipEl.textContent = '💡 ' + tip;
+    }
     document.getElementById('screenOver').classList.remove('hidden');
     // Pause + Mute im Game-Over verstecken (Settings ist sowieso schon hidden)
     resetPauseButtonUI();
